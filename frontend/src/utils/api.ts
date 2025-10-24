@@ -88,30 +88,8 @@ export const getCoachRecommendations = async () => {
   );
 };
 
-/**
- * Upload photo for analysis
- * @param {FormData} formData - Photo data
- * @returns {Promise} Upload response
- */
-export const uploadPhoto = async (formData: FormData) => {
-  return apiCall(
-    () => api.post('/photos/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    }),
-    'Failed to upload photo'
-  );
-};
-
-/**
- * Analyze photo via backend (which calls Python service)
- * @param {string} photoId - Photo ID
- * @returns {Promise} Analysis results
- */
-export const analyzePhoto = async (photoId: string) => {
-  return apiCall(
-    () => api.post(`/photos/${photoId}/analyze`),
-    'Failed to analyze photo'
-  );
-};
+// Photo analysis functions disabled - coming soon!
+// export const uploadPhoto = async (formData: FormData) => { ... }
+// export const analyzePhoto = async (photoId: string) => { ... }
 
 export default api;
