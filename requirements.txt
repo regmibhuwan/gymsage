@@ -1,0 +1,4 @@
+# Root requirements file for Railway deployment
+# This tells Railway to install from analyzer/requirements.txt
+-r analyzer/requirements.txt
+
