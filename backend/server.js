@@ -13,6 +13,9 @@ const voiceRoutes = require('./routes/voice');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust Railway proxy (fixes rate limiting warning)
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 app.use(cors({
