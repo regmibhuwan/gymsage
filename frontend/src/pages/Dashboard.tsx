@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import api from '../utils/api';
 import { 
   Plus, 
   Calendar, 
@@ -48,8 +48,8 @@ const Dashboard: React.FC = () => {
 
   const fetchWorkouts = async () => {
     try {
-      const response = await axios.get('/workouts');
-      const workoutsData = response.data.workouts;
+      const response = await api.get('/workouts');
+      const workoutsData = response.data.workouts || []; // Handle undefined case
       setWorkouts(workoutsData);
       
       // Calculate stats
@@ -61,7 +61,7 @@ const Dashboard: React.FC = () => {
       ).length;
       
       const totalExercises = workoutsData.reduce((sum: number, workout: Workout) => 
-        sum + workout.exercises.length, 0
+        sum + (workout.exercises?.length || 0), 0
       );
       
       const weeksSinceStart = Math.max(1, Math.ceil(
@@ -77,6 +77,14 @@ const Dashboard: React.FC = () => {
     } catch (error) {
       console.error('Error fetching workouts:', error);
       toast.error('Failed to load workouts');
+      // Set empty arrays to prevent undefined errors
+      setWorkouts([]);
+      setStats({
+        totalWorkouts: 0,
+        thisWeekWorkouts: 0,
+        totalExercises: 0,
+        avgWorkoutsPerWeek: 0
+      });
     } finally {
       setLoading(false);
     }
@@ -109,6 +117,10 @@ const Dashboard: React.FC = () => {
   };
 
   const groupWorkoutsByDate = (workouts: Workout[]) => {
+    if (!workouts || !Array.isArray(workouts)) {
+      return [];
+    }
+    
     const grouped = workouts.reduce((groups, workout) => {
       const date = workout.date;
       if (!groups[date]) {
@@ -127,21 +139,25 @@ const Dashboard: React.FC = () => {
     const exerciseData: Record<string, Array<{date: string, weight: number, volume: number}>> = {};
     
     workouts.forEach(workout => {
-      workout.exercises.forEach(exercise => {
-        const exerciseName = exercise.exercise;
-        if (!exerciseData[exerciseName]) {
-          exerciseData[exerciseName] = [];
-        }
-        
-        const maxWeight = Math.max(...exercise.sets.map(set => set.weight_kg));
-        const totalVolume = exercise.sets.reduce((sum, set) => sum + (set.reps * set.weight_kg), 0);
-        
-        exerciseData[exerciseName].push({
-          date: workout.date,
-          weight: maxWeight,
-          volume: totalVolume
+      if (workout.exercises && Array.isArray(workout.exercises)) {
+        workout.exercises.forEach(exercise => {
+          const exerciseName = exercise.exercise;
+          if (!exerciseData[exerciseName]) {
+            exerciseData[exerciseName] = [];
+          }
+          
+          if (exercise.sets && Array.isArray(exercise.sets)) {
+            const maxWeight = Math.max(...exercise.sets.map(set => set.weight_kg));
+            const totalVolume = exercise.sets.reduce((sum, set) => sum + (set.reps * set.weight_kg), 0);
+            
+            exerciseData[exerciseName].push({
+              date: workout.date,
+              weight: maxWeight,
+              volume: totalVolume
+            });
+          }
         });
-      });
+      }
     });
 
     return exerciseData;
