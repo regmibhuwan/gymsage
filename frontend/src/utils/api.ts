@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 
 // Configure axios defaults
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3001/api',
+  baseURL: 'https://gymsage-backend-production-4ebe.up.railway.app/api',
   timeout: 30000, // 30 second timeout
 });
 
