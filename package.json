@@ -1,0 +1,15 @@
+{
+  "name": "gymsage",
+  "version": "1.0.0",
+  "description": "AI-powered fitness tracker with voice logging and photo analysis",
+  "scripts": {
+    "start:frontend": "cd frontend && npm run start",
+    "start:backend": "cd backend && npm run dev",
+    "start:analyzer": "cd analyzer && uvicorn main:app --reload --port 8001",
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install && cd ../analyzer && pip install -r requirements.txt",
+    "test": "cd backend && npm test && cd ../analyzer && python -m pytest"
+  },
+  "keywords": ["fitness", "ai", "voice", "tracking", "gym"],
+  "author": "GymSage Team",
+  "license": "MIT"
+}
