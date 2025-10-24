@@ -1,13 +1,17 @@
+# Railway Analyzer Nixpacks Configuration
+# Railway Root Directory: analyzer
+# This ensures we use Python 3.12 and venv for dependency isolation
+
 [phases.setup]
 nixPkgs = ['python312', 'python312Packages.pip', 'python312Packages.virtualenv']
 
 [phases.install]
 cmds = [
-  'python -m venv /opt/venv',
-  '. /opt/venv/bin/activate && pip install --upgrade pip',
-  '. /opt/venv/bin/activate && pip install -r requirements.txt'
+  'python -m venv .venv',
+  '. .venv/bin/activate && pip install --upgrade pip',
+  '. .venv/bin/activate && pip install -r requirements.txt'
 ]
 
 [start]
-cmd = '. /opt/venv/bin/activate && uvicorn main:app --host 0.0.0.0 --port $PORT'
+cmd = '. .venv/bin/activate && uvicorn main:app --host 0.0.0.0 --port $PORT'
 
