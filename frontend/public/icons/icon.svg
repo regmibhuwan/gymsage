@@ -1,0 +1,37 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="240" fill="#3b82f6" stroke="#1e40af" stroke-width="8"/>
+  
+  <!-- Dumbbell icon -->
+  <g transform="translate(256, 256)">
+    <!-- Left weight -->
+    <rect x="-120" y="-20" width="40" height="40" rx="8" fill="#ffffff"/>
+    <rect x="-110" y="-10" width="20" height="20" rx="4" fill="#3b82f6"/>
+    
+    <!-- Bar -->
+    <rect x="-80" y="-8" width="160" height="16" rx="8" fill="#ffffff"/>
+    
+    <!-- Right weight -->
+    <rect x="80" y="-20" width="40" height="40" rx="8" fill="#ffffff"/>
+    <rect x="90" y="-10" width="20" height="20" rx="4" fill="#3b82f6"/>
+    
+    <!-- Center grip -->
+    <rect x="-20" y="-12" width="40" height="24" rx="12" fill="#1e40af"/>
+    
+    <!-- Grip lines -->
+    <line x1="-10" y1="-8" x2="-10" y2="8" stroke="#ffffff" stroke-width="2"/>
+    <line x1="10" y1="-8" x2="10" y2="8" stroke="#ffffff" stroke-width="2"/>
+  </g>
+  
+  <!-- AI sparkle -->
+  <g transform="translate(180, 120)">
+    <circle cx="0" cy="0" r="4" fill="#fbbf24"/>
+    <path d="M-8,-8 L8,8 M8,-8 L-8,8" stroke="#fbbf24" stroke-width="2"/>
+  </g>
+  
+  <!-- Voice wave -->
+  <g transform="translate(320, 180)">
+    <path d="M0,0 Q10,-10 20,0 Q30,10 40,0 Q50,-10 60,0" stroke="#10b981" stroke-width="3" fill="none"/>
+    <path d="M0,5 Q15,-15 30,5 Q45,25 60,5" stroke="#10b981" stroke-width="2" fill="none"/>
+  </g>
+</svg>

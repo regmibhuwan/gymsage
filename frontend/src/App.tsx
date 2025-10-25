@@ -4,6 +4,8 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
+import PWAInstallBanner from './components/PWAInstallBanner';
+import OfflineIndicator from './components/OfflineIndicator';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -57,6 +59,10 @@ function App() {
               },
             }}
           />
+          
+          {/* PWA Components */}
+          <OfflineIndicator />
+          <PWAInstallBanner />
           
           <Routes>
             {/* Public routes */}
