@@ -145,17 +145,30 @@ const Dashboard: React.FC = () => {
   const generateSummary = async (type: 'daily' | 'weekly') => {
     try {
       if (type === 'daily') {
-        // Get today's workout
+        // Get all workouts for today and aggregate exercises
         const today = new Date().toISOString().split('T')[0];
-        const todayWorkout = workouts.find(workout => workout.date === today);
+        const todayWorkouts = workouts.filter(workout => workout.date === today);
         
-        if (!todayWorkout) {
+        if (todayWorkouts.length === 0) {
           toast.error('No workout found for today');
           return;
         }
 
+        // Aggregate all exercises from all today's workouts
+        const allExercises = todayWorkouts.reduce((acc: any[], workout) => {
+          if (workout.exercises && Array.isArray(workout.exercises)) {
+            return [...acc, ...workout.exercises];
+          }
+          return acc;
+        }, [] as any[]);
+
+        if (allExercises.length === 0) {
+          toast.error('No exercises found for today');
+          return;
+        }
+
         const response = await api.post('/voice/summary/daily', {
-          exercises: todayWorkout.exercises,
+          exercises: allExercises,
           date: today
         });
         

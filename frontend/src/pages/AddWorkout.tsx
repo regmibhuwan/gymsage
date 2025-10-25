@@ -367,15 +367,28 @@ const AddWorkout: React.FC = () => {
         try {
           const workoutsResponse = await api.get('/workouts');
           const allWorkouts = workoutsResponse.data.workouts || [];
-          const todayWorkout = allWorkouts.find((workout: any) => workout.date === today);
+          const todayWorkouts = allWorkouts.filter((workout: any) => workout.date === today);
           
-          if (!todayWorkout) {
+          if (todayWorkouts.length === 0) {
             toast.error('No workout found for today');
             return;
           }
 
+          // Aggregate all exercises from all today's workouts
+          const allExercises = todayWorkouts.reduce((acc: any[], workout: any) => {
+            if (workout.exercises && Array.isArray(workout.exercises)) {
+              return [...acc, ...workout.exercises];
+            }
+            return acc;
+          }, []);
+
+          if (allExercises.length === 0) {
+            toast.error('No exercises found for today');
+            return;
+          }
+
           const response = await api.post('/voice/summary/daily', {
-            exercises: todayWorkout.exercises,
+            exercises: allExercises,
             date: today
           });
           
