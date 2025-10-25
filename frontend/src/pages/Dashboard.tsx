@@ -89,7 +89,7 @@ const Dashboard: React.FC = () => {
         totalExercises,
         avgWorkoutsPerWeek: Math.round(workoutsData.length / weeksSinceStart * 10) / 10
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching workouts:', error);
       console.error('Error details:', error.response?.data);
       toast.error('Failed to load workouts');

@@ -1,5 +1,5 @@
 # Fly.io configuration for GymSage Analyzer
-app = "gymsage-analyzer"
+app = "gymsage-analyzer-2025"
 primary_region = "iad"
 
 [build]

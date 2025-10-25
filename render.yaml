@@ -1,11 +1,8 @@
-# Render deployment configuration
-# This file enables one-click deployment to Render.com
-
 services:
-  # Backend API Service
+  # Backend API (Node.js + Express)
   - type: web
     name: gymsage-backend
-    env: node
+    runtime: node
     region: oregon
     plan: free
     buildCommand: cd backend && npm install
@@ -14,9 +11,9 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 3001
+        value: 10000
       - key: OPENAI_API_KEY
-        sync: false  # Set manually in Render dashboard
+        sync: false
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_KEY
@@ -24,19 +21,22 @@ services:
       - key: SUPABASE_SERVICE_KEY
         sync: false
       - key: JWT_SECRET
-        generateValue: true  # Auto-generate secure secret
+        sync: false
       - key: FRONTEND_URL
-        sync: false  # Set to your Vercel URL
+        sync: false
       - key: ANALYZER_URL
-        sync: false  # Set to your analyzer service URL
+        sync: false
+    healthCheckPath: /api/health
 
-  # Python Analyzer Service
+  # Python Analyzer Service (FastAPI)
   - type: web
     name: gymsage-analyzer
-    env: python
+    runtime: python
     region: oregon
     plan: free
     buildCommand: cd analyzer && pip install -r requirements.txt
     startCommand: cd analyzer && uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PORT
+        value: 10000
     healthCheckPath: /health
-

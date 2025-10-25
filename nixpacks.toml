@@ -8,3 +8,5 @@ cmds = [
 
 [start]
 cmd = 'cd backend && npm start'
+
+

@@ -306,7 +306,7 @@ const AddWorkout: React.FC = () => {
       } else if (type === 'weekly') {
         // For weekly summary, we'd need to fetch workouts from the current week
         // This is a placeholder - you'd implement the weekly logic here
-        toast.info('Weekly summary feature coming soon!');
+        toast('Weekly summary feature coming soon!');
       }
     } catch (error: any) {
       console.error('Error generating summary:', error);
