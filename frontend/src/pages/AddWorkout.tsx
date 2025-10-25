@@ -106,6 +106,10 @@ const AddWorkout: React.FC = () => {
       const formData = new FormData();
       formData.append('audio', audioBlob, 'workout.webm');
 
+      console.log('API base URL:', api.defaults.baseURL);
+      console.log('Making request to:', '/voice/transcribe');
+      console.log('Full URL will be:', api.defaults.baseURL + '/voice/transcribe');
+
       const response = await api.post('/voice/transcribe', formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
