@@ -361,19 +361,35 @@ const AddWorkout: React.FC = () => {
   const generateSummary = async (type: 'daily' | 'weekly') => {
     try {
       if (type === 'daily') {
-        const response = await api.post('/voice/summary/daily', {
-          exercises: exercises,
-          date: date
-        });
+        // Fetch today's actual workout from database instead of using form state
+        const today = new Date().toISOString().split('T')[0];
         
-        if (response.data.success) {
-          setSummaryModal({
-            isOpen: true,
-            content: response.data.summary,
-            tableData: response.data.tableData,
-            stats: response.data.stats,
-            type: 'daily'
+        try {
+          const workoutsResponse = await api.get('/workouts');
+          const allWorkouts = workoutsResponse.data.workouts || [];
+          const todayWorkout = allWorkouts.find((workout: any) => workout.date === today);
+          
+          if (!todayWorkout) {
+            toast.error('No workout found for today');
+            return;
+          }
+
+          const response = await api.post('/voice/summary/daily', {
+            exercises: todayWorkout.exercises,
+            date: today
           });
+          
+          if (response.data.success) {
+            setSummaryModal({
+              isOpen: true,
+              content: response.data.summary,
+              tableData: response.data.tableData,
+              stats: response.data.stats,
+              type: 'daily'
+            });
+          }
+        } catch (error) {
+          toast.error('Failed to fetch today\'s workout');
         }
       } else if (type === 'weekly') {
         // Fetch workouts from the current week
