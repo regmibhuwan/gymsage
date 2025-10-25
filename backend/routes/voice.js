@@ -391,14 +391,20 @@ function parseWithRegex(transcript) {
 /**
  * Parse individual sets with separate reps/weights
  * Handles phrases like "3 sets of bench press, first set 10 reps 100 pounds, second set 8 reps 90 pounds"
+ * Also handles comma-separated reps like "pushups 4 sets and 2, 3, 4, 5 reps"
  */
 function parseIndividualSets(text) {
-  const individualSetsPattern = /(?:first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th|set\s+\d+)\s+(?:set\s+)?(\d+)\s+reps?\s+(\d+(?:\.\d+)?)\s*(kg|kilograms?|kilos?|lbs?|pounds?|lb)/gi;
+  // Pattern 1: Explicit set descriptions like "first set 10 reps 100 pounds"
+  const explicitSetsPattern = /(?:first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th|set\s+\d+)\s+(?:set\s+)?(\d+)\s+reps?\s+(\d+(?:\.\d+)?)\s*(kg|kilograms?|kilos?|lbs?|pounds?|lb)/gi;
+  
+  // Pattern 2: Comma-separated reps like "2, 3, 4, 5 reps"
+  const commaRepsPattern = /(\d+(?:\s*,\s*\d+)*)\s+reps?/i;
   
   const sets = [];
-  let match;
   
-  while ((match = individualSetsPattern.exec(text)) !== null) {
+  // Try explicit sets first
+  let match;
+  while ((match = explicitSetsPattern.exec(text)) !== null) {
     const reps = parseInt(match[1]);
     const weight = parseFloat(match[2]);
     const unit = match[3].toLowerCase();
@@ -421,6 +427,46 @@ function parseIndividualSets(text) {
       weight_lbs: Math.round(weightLbs * 2) / 2,
       weight_unit: weightUnit
     });
+  }
+  
+  // If no explicit sets found, try comma-separated reps
+  if (sets.length === 0) {
+    const commaMatch = text.match(commaRepsPattern);
+    if (commaMatch) {
+      const repsString = commaMatch[1];
+      const repsArray = repsString.split(',').map(r => parseInt(r.trim()));
+      
+      // Extract weight if mentioned
+      const weightPattern = /(\d+(?:\.\d+)?)\s*(kg|kilograms?|kilos?|lbs?|pounds?|lb)/i;
+      const weightMatch = text.match(weightPattern);
+      
+      let weightKg = 0, weightLbs = 0, weightUnit = 'kg';
+      
+      if (weightMatch) {
+        const weight = parseFloat(weightMatch[1]);
+        const unit = weightMatch[2].toLowerCase();
+        
+        if (unit.includes('lb') || unit.includes('pound')) {
+          weightLbs = weight;
+          weightKg = weight * 0.453592;
+          weightUnit = 'lbs';
+        } else {
+          weightKg = weight;
+          weightLbs = weight * 2.20462;
+          weightUnit = 'kg';
+        }
+      }
+      
+      // Create sets for each rep count
+      repsArray.forEach((reps, index) => {
+        sets.push({
+          reps: reps,
+          weight_kg: smartRoundWeight(weightKg),
+          weight_lbs: Math.round(weightLbs * 2) / 2,
+          weight_unit: weightUnit
+        });
+      });
+    }
   }
   
   return sets;
