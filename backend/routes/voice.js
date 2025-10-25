@@ -404,7 +404,8 @@ async function parseIncrementalWorkout(transcript, sessionContext) {
     'again', 'same', 'continue', 'more', 'add set', 'one more'
   ];
   
-  const isContinuation = continuationKeywords.some(keyword => text.includes(keyword));
+  const isContinuation = continuationKeywords.some(keyword => text.includes(keyword)) || 
+                        sessionContext.isVoiceContinuation; // Special flag for voice-added sets
   
   // Extract exercise name if mentioned
   let exerciseName = null;
@@ -477,12 +478,15 @@ async function parseIncrementalWorkout(transcript, sessionContext) {
   // Extract reps and weight
   const repsPattern = /(\d+)\s*(?:reps?|repetitions?|times?)\b/i;
   const weightPattern = /(\d+(?:\.\d+)?)\s*(?:kg|kilograms?|kilos?|lbs?|pounds?|lb)\b/i;
+  const setsPattern = /(\d+)\s*(?:sets?|x|times)/i;
 
   const repsMatch = text.match(repsPattern);
   const weightMatch = text.match(weightPattern);
+  const setsMatch = text.match(setsPattern);
 
-  const reps = repsMatch ? parseInt(repsMatch[1]) : 10; // Default to 10 reps
+  const reps = repsMatch ? parseInt(repsMatch[1]) : 1; // Default to 1 rep if not mentioned
   let weight = weightMatch ? parseFloat(weightMatch[1]) : 0;
+  const numSets = setsMatch ? parseInt(setsMatch[1]) : 1; // Default to 1 set if not mentioned
 
   // Convert lbs to kg if needed
   if (weightMatch && (text.includes('lb') || text.includes('pound'))) {
@@ -499,26 +503,34 @@ async function parseIncrementalWorkout(transcript, sessionContext) {
   if (isContinuation && sessionContext.lastExercise === finalExerciseName) {
     isNewExercise = false;
     setNumber = (sessionContext.lastSetNumber || 0) + 1;
+  } else if (isContinuation && sessionContext.lastExercise) {
+    // Voice continuation - use the last exercise even if name doesn't match exactly
+    finalExerciseName = sessionContext.lastExercise;
+    isNewExercise = false;
+    setNumber = (sessionContext.lastSetNumber || 0) + 1;
   } else if (exerciseName && sessionContext.lastExercise === finalExerciseName) {
     // Same exercise name mentioned again - treat as new exercise
     isNewExercise = true;
     setNumber = 1;
   }
 
-  // Create the set data
-  const newSet = {
-    set: setNumber,
-    reps: reps,
-    weight_kg: weight
-  };
+  // Create the sets data - handle multiple sets
+  const sets = [];
+  for (let i = 0; i < numSets; i++) {
+    sets.push({
+      set: setNumber + i,
+      reps: reps,
+      weight_kg: weight
+    });
+  }
 
   // Return data structure
   const result = {
     exercise: finalExerciseName.trim(),
-    sets: [newSet],
+    sets: sets,
     isNewExercise: isNewExercise,
     isContinuation: isContinuation,
-    setNumber: setNumber
+    setNumber: setNumber + numSets - 1 // Last set number
   };
 
   return result;

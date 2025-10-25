@@ -43,7 +43,8 @@ const AddWorkout: React.FC = () => {
   // Session context for incremental logging
   const [sessionContext, setSessionContext] = useState({
     lastExercise: '',
-    lastSetNumber: 0
+    lastSetNumber: 0,
+    isVoiceContinuation: false
   });
 
   // Summary modal state
@@ -147,30 +148,32 @@ const AddWorkout: React.FC = () => {
           // Update session context
           setSessionContext({
             lastExercise: incrementalData.exercise,
-            lastSetNumber: incrementalData.setNumber
+            lastSetNumber: incrementalData.setNumber,
+            isVoiceContinuation: false
           });
 
           // Handle the parsed data based on whether it's a new exercise or continuation
           if (incrementalData.isNewExercise) {
             // Add as new exercise
             setExercises(prev => [...prev, incrementalData]);
-            toast.success(`✅ Added ${incrementalData.exercise} - Set ${incrementalData.setNumber}!`);
+            toast.success(`✅ Added ${incrementalData.exercise} with ${incrementalData.sets.length} sets!`);
           } else {
-            // Add set to existing exercise
+            // Add sets to existing exercise
             setExercises(prev => {
               const updatedExercises = [...prev];
               const lastExerciseIndex = updatedExercises.length - 1;
               
               if (lastExerciseIndex >= 0 && 
                   updatedExercises[lastExerciseIndex].exercise === incrementalData.exercise) {
-                updatedExercises[lastExerciseIndex].sets.push(incrementalData.sets[0]);
+                // Add all sets from the incremental data
+                updatedExercises[lastExerciseIndex].sets.push(...incrementalData.sets);
                 return updatedExercises;
               } else {
                 // Fallback: add as new exercise
                 return [...prev, incrementalData];
               }
             });
-            toast.success(`✅ Added Set ${incrementalData.setNumber} to ${incrementalData.exercise}!`);
+            toast.success(`✅ Added ${incrementalData.sets.length} sets to ${incrementalData.exercise}!`);
           }
         } else {
           // Fallback to original parsing
@@ -266,10 +269,11 @@ const AddWorkout: React.FC = () => {
     const exercise = exercises[exerciseIndex];
     if (!exercise) return;
 
-    // Update session context to the current exercise
+    // Update session context to the current exercise and mark as voice continuation
     setSessionContext({
       lastExercise: exercise.exercise,
-      lastSetNumber: exercise.sets.length
+      lastSetNumber: exercise.sets.length,
+      isVoiceContinuation: true // Special flag for voice-added sets
     });
 
     // Start recording
