@@ -30,7 +30,7 @@ interface Workout {
 }
 
 const Dashboard: React.FC = () => {
-  console.log('Dashboard component rendering...');
+  console.log('Dashboard component rendering... v2');
   
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [loading, setLoading] = useState(true);
