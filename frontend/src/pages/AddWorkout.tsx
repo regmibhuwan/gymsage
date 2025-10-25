@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { 
   Mic, 
@@ -106,13 +106,9 @@ const AddWorkout: React.FC = () => {
       const formData = new FormData();
       formData.append('audio', audioBlob, 'workout.webm');
 
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
-
-      const response = await axios.post(`${API_URL}/api/voice/transcribe`, formData, {
+      const response = await api.post('/voice/transcribe', formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'multipart/form-data'
         }
       });
 
@@ -229,7 +225,7 @@ const AddWorkout: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post('/workouts', {
+      const response = await api.post('/workouts', {
         date,
         exercises,
         notes
