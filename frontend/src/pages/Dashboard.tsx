@@ -30,6 +30,8 @@ interface Workout {
 }
 
 const Dashboard: React.FC = () => {
+  console.log('Dashboard component rendering...');
+  
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedWorkouts, setExpandedWorkouts] = useState<Set<string>>(new Set());
@@ -43,6 +45,7 @@ const Dashboard: React.FC = () => {
   });
 
   useEffect(() => {
+    console.log('Dashboard useEffect running...');
     fetchWorkouts();
   }, []);
 
