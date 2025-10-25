@@ -56,6 +56,12 @@ const AddWorkout: React.FC = () => {
     type: 'daily' as 'daily' | 'weekly'
   });
 
+  // Save or continue modal state
+  const [saveContinueModal, setSaveContinueModal] = useState({
+    isOpen: false,
+    exerciseName: ''
+  });
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const navigate = useNavigate();
@@ -157,6 +163,12 @@ const AddWorkout: React.FC = () => {
             // Add as new exercise
             setExercises(prev => [...prev, incrementalData]);
             toast.success(`✅ Added ${incrementalData.exercise} with ${incrementalData.sets.length} sets!`);
+            
+            // Show save or continue modal for new exercises
+            setSaveContinueModal({
+              isOpen: true,
+              exerciseName: incrementalData.exercise
+            });
           } else {
             // Add sets to existing exercise
             setExercises(prev => {
@@ -228,7 +240,28 @@ const AddWorkout: React.FC = () => {
   };
 
   const removeExercise = (index: number) => {
-    setExercises(prev => prev.filter((_, i) => i !== index));
+    setExercises(prev => {
+      const newExercises = prev.filter((_, i) => i !== index);
+      
+      // Clean session context if the removed exercise was the last one
+      if (newExercises.length === 0) {
+        setSessionContext({
+          lastExercise: '',
+          lastSetNumber: 0,
+          isVoiceContinuation: false
+        });
+      } else if (index === prev.length - 1) {
+        // If we removed the last exercise, update context to the new last exercise
+        const lastExercise = newExercises[newExercises.length - 1];
+        setSessionContext({
+          lastExercise: lastExercise.exercise,
+          lastSetNumber: lastExercise.sets.length,
+          isVoiceContinuation: false
+        });
+      }
+      
+      return newExercises;
+    });
   };
 
   const updateSet = (exerciseIndex: number, setIndex: number, field: 'reps' | 'weight_kg', value: number) => {
@@ -737,6 +770,60 @@ const AddWorkout: React.FC = () => {
         stats={summaryModal.stats}
         type={summaryModal.type}
       />
+      
+      {/* Save or Continue Modal */}
+      {saveContinueModal.isOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-screen items-center justify-center p-4">
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 bg-gray-600 bg-opacity-75 transition-opacity"
+              onClick={() => setSaveContinueModal({ isOpen: false, exerciseName: '' })}
+            />
+            
+            {/* Modal */}
+            <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full">
+              {/* Header */}
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Exercise Added: {saveContinueModal.exerciseName}
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  What would you like to do next?
+                </p>
+              </div>
+              
+              {/* Content */}
+              <div className="p-6">
+                <div className="space-y-3">
+                  <button
+                    onClick={() => {
+                      setSaveContinueModal({ isOpen: false, exerciseName: '' });
+                      // Continue adding exercises
+                    }}
+                    className="w-full btn-secondary flex items-center justify-center space-x-2"
+                  >
+                    <Plus className="h-5 w-5" />
+                    <span>Add More Exercises</span>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setSaveContinueModal({ isOpen: false, exerciseName: '' });
+                      // Save the workout
+                      handleSubmit(new Event('submit') as any);
+                    }}
+                    className="w-full btn-primary flex items-center justify-center space-x-2"
+                  >
+                    <Save className="h-5 w-5" />
+                    <span>Save Workout</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

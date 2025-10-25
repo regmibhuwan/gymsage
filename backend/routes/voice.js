@@ -389,6 +389,44 @@ function parseWithRegex(transcript) {
 }
 
 /**
+ * Parse individual sets with separate reps/weights
+ * Handles phrases like "3 sets of bench press, first set 10 reps 100 pounds, second set 8 reps 90 pounds"
+ */
+function parseIndividualSets(text) {
+  const individualSetsPattern = /(?:first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th|set\s+\d+)\s+(?:set\s+)?(\d+)\s+reps?\s+(\d+(?:\.\d+)?)\s*(kg|kilograms?|kilos?|lbs?|pounds?|lb)/gi;
+  
+  const sets = [];
+  let match;
+  
+  while ((match = individualSetsPattern.exec(text)) !== null) {
+    const reps = parseInt(match[1]);
+    const weight = parseFloat(match[2]);
+    const unit = match[3].toLowerCase();
+    
+    let weightKg, weightLbs, weightUnit;
+    
+    if (unit.includes('lb') || unit.includes('pound')) {
+      weightLbs = weight;
+      weightKg = weight * 0.453592;
+      weightUnit = 'lbs';
+    } else {
+      weightKg = weight;
+      weightLbs = weight * 2.20462;
+      weightUnit = 'kg';
+    }
+    
+    sets.push({
+      reps: reps,
+      weight_kg: smartRoundWeight(weightKg),
+      weight_lbs: Math.round(weightLbs * 2) / 2,
+      weight_unit: weightUnit
+    });
+  }
+  
+  return sets;
+}
+
+/**
  * Enhanced incremental workout parser with session context
  * Handles incremental logging, set continuation, and smart defaults
  * @param {string} transcript - Voice transcript text
@@ -488,13 +526,26 @@ async function parseIncrementalWorkout(transcript, sessionContext) {
   let weight = weightMatch ? parseFloat(weightMatch[1]) : 0;
   const numSets = setsMatch ? parseInt(setsMatch[1]) : 1; // Default to 1 set if not mentioned
 
-  // Convert lbs to kg if needed
-  if (weightMatch && (text.includes('lb') || text.includes('pound'))) {
-    weight = weight * 0.453592; // Convert to kg
+  // Determine weight unit and preserve both values
+  let weightKg = weight;
+  let weightLbs = weight;
+  let weightUnit = 'kg'; // Default unit
+
+  if (weightMatch) {
+    if (text.includes('lb') || text.includes('pound')) {
+      weightLbs = weight;
+      weightKg = weight * 0.453592; // Convert to kg for storage
+      weightUnit = 'lbs';
+    } else {
+      weightKg = weight;
+      weightLbs = weight * 2.20462; // Convert to lbs for display
+      weightUnit = 'kg';
+    }
   }
 
   // Smart rounding to nearest .0 or .5
-  weight = smartRoundWeight(weight);
+  weightKg = smartRoundWeight(weightKg);
+  weightLbs = Math.round(weightLbs * 2) / 2; // Round to nearest .5 for lbs
 
   // Determine if this is a continuation or new exercise
   let isNewExercise = true;
@@ -514,14 +565,30 @@ async function parseIncrementalWorkout(transcript, sessionContext) {
     setNumber = 1;
   }
 
-  // Create the sets data - handle multiple sets
-  const sets = [];
-  for (let i = 0; i < numSets; i++) {
-    sets.push({
-      set: setNumber + i,
-      reps: reps,
-      weight_kg: weight
-    });
+  // Check for individual sets parsing first
+  const individualSets = parseIndividualSets(text);
+  let sets = [];
+  
+  if (individualSets.length > 0) {
+    // Individual sets found - use them
+    sets = individualSets.map((setData, index) => ({
+      set: setNumber + index,
+      reps: setData.reps,
+      weight_kg: setData.weight_kg,
+      weight_lbs: setData.weight_lbs,
+      weight_unit: setData.weight_unit
+    }));
+  } else {
+    // No individual sets - create uniform sets
+    for (let i = 0; i < numSets; i++) {
+      sets.push({
+        set: setNumber + i,
+        reps: reps,
+        weight_kg: weightKg,
+        weight_lbs: weightLbs,
+        weight_unit: weightUnit
+      });
+    }
   }
 
   // Return data structure
