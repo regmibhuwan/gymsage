@@ -48,20 +48,32 @@ const Dashboard: React.FC = () => {
 
   const fetchWorkouts = async () => {
     try {
+      console.log('Fetching workouts...');
       const response = await api.get('/workouts');
-      const workoutsData = response.data.workouts || []; // Handle undefined case
+      console.log('API Response:', response);
+      console.log('Response data:', response.data);
+      
+      // More robust data handling
+      let workoutsData = [];
+      if (response.data && response.data.workouts) {
+        workoutsData = Array.isArray(response.data.workouts) ? response.data.workouts : [];
+      } else if (Array.isArray(response.data)) {
+        workoutsData = response.data;
+      }
+      
+      console.log('Processed workouts data:', workoutsData);
       setWorkouts(workoutsData);
       
-      // Calculate stats
+      // Calculate stats with additional safety checks
       const now = new Date();
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       
       const thisWeekWorkouts = workoutsData.filter((workout: Workout) => 
-        new Date(workout.date) >= weekAgo
+        workout && workout.date && new Date(workout.date) >= weekAgo
       ).length;
       
       const totalExercises = workoutsData.reduce((sum: number, workout: Workout) => 
-        sum + (workout.exercises?.length || 0), 0
+        sum + (workout && workout.exercises && Array.isArray(workout.exercises) ? workout.exercises.length : 0), 0
       );
       
       const weeksSinceStart = Math.max(1, Math.ceil(
@@ -76,6 +88,7 @@ const Dashboard: React.FC = () => {
       });
     } catch (error) {
       console.error('Error fetching workouts:', error);
+      console.error('Error details:', error.response?.data);
       toast.error('Failed to load workouts');
       // Set empty arrays to prevent undefined errors
       setWorkouts([]);
@@ -167,6 +180,44 @@ const Dashboard: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // Add error state handling
+  if (workouts.length === 0) {
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+            <p className="text-gray-600">Track your fitness progress</p>
+          </div>
+          <Link
+            to="/add-workout"
+            className="btn-primary flex items-center space-x-2"
+          >
+            <Plus className="h-5 w-5" />
+            <span>Add Workout</span>
+          </Link>
+        </div>
+
+        {/* Empty State */}
+        <div className="text-center py-12">
+          <div className="mx-auto h-24 w-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+            <Dumbbell className="h-12 w-12 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No workouts yet</h3>
+          <p className="text-gray-600 mb-6">Start your fitness journey by adding your first workout!</p>
+          <Link
+            to="/add-workout"
+            className="btn-primary flex items-center space-x-2 mx-auto w-fit"
+          >
+            <Plus className="h-5 w-5" />
+            <span>Add Your First Workout</span>
+          </Link>
+        </div>
       </div>
     );
   }
