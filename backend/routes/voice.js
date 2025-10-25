@@ -161,6 +161,34 @@ Rules:
 });
 
 /**
+ * Enhanced incremental voice parsing with session context
+ * POST /api/voice/parse-incremental
+ */
+router.post('/parse-incremental', authenticateToken, async (req, res) => {
+  try {
+    const { transcript, sessionContext } = req.body;
+
+    if (!transcript || typeof transcript !== 'string') {
+      return res.status(400).json({ error: 'Transcript is required' });
+    }
+
+    // Parse with enhanced logic that considers session context
+    const parsedData = await parseIncrementalWorkout(transcript, sessionContext || {});
+    
+    return res.json({ 
+      success: true, 
+      data: parsedData,
+      transcript: transcript,
+      method: 'incremental-parser'
+    });
+
+  } catch (error) {
+    console.error('Incremental parsing error:', error);
+    res.status(500).json({ error: 'Failed to parse voice transcript' });
+  }
+});
+
+/**
  * Parse voice transcript into structured workout data
  * POST /api/voice/parse
  */
@@ -359,5 +387,288 @@ function parseWithRegex(transcript) {
     sets: sets
   };
 }
+
+/**
+ * Enhanced incremental workout parser with session context
+ * Handles incremental logging, set continuation, and smart defaults
+ * @param {string} transcript - Voice transcript text
+ * @param {Object} sessionContext - Current session context with last exercise info
+ * @returns {Object} Parsed workout data with continuation logic
+ */
+async function parseIncrementalWorkout(transcript, sessionContext) {
+  const text = transcript.toLowerCase().trim();
+  
+  // Check for continuation keywords
+  const continuationKeywords = [
+    'next set', 'another set', 'second set', 'third set', 'fourth set', 'fifth set',
+    'again', 'same', 'continue', 'more', 'add set', 'one more'
+  ];
+  
+  const isContinuation = continuationKeywords.some(keyword => text.includes(keyword));
+  
+  // Extract exercise name if mentioned
+  let exerciseName = null;
+  const exercisePatterns = [
+    // Chest
+    /(?:bench press|bench|incline bench|decline bench|chest press|dumbbell press)/,
+    /(?:push\s*ups?|pushups?)/,
+    /(?:chest (?:fly|flyes?))/,
+    /(?:cable crossover)/,
+    
+    // Back
+    /(?:pull\s*ups?|pullups?|chin\s*ups?|chinups?)/,
+    /(?:lat pulldown|lat pull down)/,
+    /(?:deadlifts?|dead lift)/,
+    /(?:barbell row|bent over row|dumbbell row|cable row|seated row)/,
+    /(?:t bar row)/,
+    
+    // Legs
+    /(?:squats?|front squat|back squat|bulgarian split squat)/,
+    /(?:leg press|leg extension|leg curl)/,
+    /(?:lunges?)/,
+    /(?:calf raises?)/,
+    /(?:romanian deadlift|rdl)/,
+    
+    // Shoulders
+    /(?:shoulder press|overhead press|military press|arnold press)/,
+    /(?:lateral raises?|side raises?|front raises?)/,
+    /(?:rear delt fly)/,
+    /(?:upright row)/,
+    /(?:shrugs?)/,
+    
+    // Arms
+    /(?:bicep curls?|biceps curls?|hammer curls?|preacher curls?)/,
+    /(?:tricep (?:extension|dip)s?|triceps (?:extension|dip)s?)/,
+    /(?:skull crushers?)/,
+    
+    // Generic patterns
+    /(?:dumbbell|db)\s+(\w+(?:\s+\w+)?)/,
+    /(?:barbell|bb)\s+(\w+(?:\s+\w+)?)/,
+    /(\w+(?:\s+\w+)?)\s+(?:press|lift|row|curl|extension|raise)/
+  ];
+
+  for (const pattern of exercisePatterns) {
+    const match = text.match(pattern);
+    if (match) {
+      if (match[1]) {
+        exerciseName = match[1].trim();
+      } else {
+        exerciseName = match[0].trim();
+      }
+      break;
+    }
+  }
+
+  // Determine exercise name based on context
+  let finalExerciseName;
+  if (exerciseName) {
+    finalExerciseName = exerciseName;
+  } else if (isContinuation && sessionContext.lastExercise) {
+    finalExerciseName = sessionContext.lastExercise;
+  } else if (sessionContext.lastExercise) {
+    // If no exercise mentioned but we have context, use last exercise
+    finalExerciseName = sessionContext.lastExercise;
+  } else {
+    // Fallback: try to extract first 2-3 words as exercise name
+    const words = text.split(/\s+/);
+    finalExerciseName = words.slice(0, Math.min(3, words.length)).join(' ');
+  }
+
+  // Extract reps and weight
+  const repsPattern = /(\d+)\s*(?:reps?|repetitions?|times?)\b/i;
+  const weightPattern = /(\d+(?:\.\d+)?)\s*(?:kg|kilograms?|kilos?|lbs?|pounds?|lb)\b/i;
+
+  const repsMatch = text.match(repsPattern);
+  const weightMatch = text.match(weightPattern);
+
+  const reps = repsMatch ? parseInt(repsMatch[1]) : 10; // Default to 10 reps
+  let weight = weightMatch ? parseFloat(weightMatch[1]) : 0;
+
+  // Convert lbs to kg if needed
+  if (weightMatch && (text.includes('lb') || text.includes('pound'))) {
+    weight = weight * 0.453592; // Convert to kg
+  }
+
+  // Smart rounding to nearest .0 or .5
+  weight = smartRoundWeight(weight);
+
+  // Determine if this is a continuation or new exercise
+  let isNewExercise = true;
+  let setNumber = 1;
+
+  if (isContinuation && sessionContext.lastExercise === finalExerciseName) {
+    isNewExercise = false;
+    setNumber = (sessionContext.lastSetNumber || 0) + 1;
+  } else if (exerciseName && sessionContext.lastExercise === finalExerciseName) {
+    // Same exercise name mentioned again - treat as new exercise
+    isNewExercise = true;
+    setNumber = 1;
+  }
+
+  // Create the set data
+  const newSet = {
+    set: setNumber,
+    reps: reps,
+    weight_kg: weight
+  };
+
+  // Return data structure
+  const result = {
+    exercise: finalExerciseName.trim(),
+    sets: [newSet],
+    isNewExercise: isNewExercise,
+    isContinuation: isContinuation,
+    setNumber: setNumber
+  };
+
+  return result;
+}
+
+/**
+ * Generate daily workout summary
+ * @param {Array} exercises - Array of exercise objects
+ * @param {string} date - Workout date
+ * @returns {string} Formatted daily summary
+ */
+function generateDailySummary(exercises, date) {
+  const workoutDate = new Date(date);
+  const formattedDate = workoutDate.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+
+  let summary = `🏋️ Workout Log — ${formattedDate}\n`;
+  summary += '--------------------------------\n';
+
+  let totalSets = 0;
+
+  exercises.forEach(exercise => {
+    summary += `${exercise.exercise}:\n`;
+    
+    exercise.sets.forEach(set => {
+      const weightLbs = Math.round(set.weight_kg * 2.20462); // Convert back to lbs for display
+      summary += `  • Set ${set.set} — ${set.reps} reps × ${weightLbs} lb\n`;
+      totalSets++;
+    });
+    
+    summary += '\n';
+  });
+
+  summary += '--------------------------------\n';
+  summary += `Total Exercises: ${exercises.length}\n`;
+  summary += `Total Sets: ${totalSets}`;
+
+  return summary;
+}
+
+/**
+ * Generate weekly workout summary
+ * @param {Array} workouts - Array of workout objects for the week
+ * @param {string} weekStart - Start date of the week
+ * @param {string} weekEnd - End date of the week
+ * @returns {string} Formatted weekly summary
+ */
+function generateWeeklySummary(workouts, weekStart, weekEnd) {
+  const startDate = new Date(weekStart);
+  const endDate = new Date(weekEnd);
+  
+  const formattedStart = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const formattedEnd = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  let summary = `📅 Weekly Summary (${formattedStart}–${formattedEnd})\n`;
+  summary += '--------------------------------\n';
+
+  // Aggregate exercise data
+  const exerciseStats = {};
+  let totalWorkouts = workouts.length;
+  let totalSets = 0;
+
+  workouts.forEach(workout => {
+    workout.exercises.forEach(exercise => {
+      const exerciseName = exercise.exercise;
+      
+      if (!exerciseStats[exerciseName]) {
+        exerciseStats[exerciseName] = {
+          totalSets: 0,
+          maxWeight: 0
+        };
+      }
+
+      exercise.sets.forEach(set => {
+        exerciseStats[exerciseName].totalSets++;
+        exerciseStats[exerciseName].maxWeight = Math.max(
+          exerciseStats[exerciseName].maxWeight, 
+          set.weight_kg
+        );
+        totalSets++;
+      });
+    });
+  });
+
+  // Generate summary for each exercise
+  Object.entries(exerciseStats).forEach(([exerciseName, stats]) => {
+    const maxWeightLbs = Math.round(stats.maxWeight * 2.20462);
+    summary += `${exerciseName} — ${stats.totalSets} sets total, Max weight: ${maxWeightLbs} lb\n`;
+  });
+
+  summary += '--------------------------------\n';
+  summary += `Total Workouts: ${totalWorkouts}\n`;
+  summary += `Total Sets: ${totalSets}`;
+
+  return summary;
+}
+
+/**
+ * Generate daily workout summary
+ * POST /api/voice/summary/daily
+ */
+router.post('/summary/daily', authenticateToken, async (req, res) => {
+  try {
+    const { exercises, date } = req.body;
+
+    if (!exercises || !Array.isArray(exercises) || !date) {
+      return res.status(400).json({ error: 'Exercises array and date are required' });
+    }
+
+    const summary = generateDailySummary(exercises, date);
+    
+    return res.json({ 
+      success: true, 
+      summary: summary,
+      type: 'daily'
+    });
+
+  } catch (error) {
+    console.error('Daily summary error:', error);
+    res.status(500).json({ error: 'Failed to generate daily summary' });
+  }
+});
+
+/**
+ * Generate weekly workout summary
+ * POST /api/voice/summary/weekly
+ */
+router.post('/summary/weekly', authenticateToken, async (req, res) => {
+  try {
+    const { workouts, weekStart, weekEnd } = req.body;
+
+    if (!workouts || !Array.isArray(workouts) || !weekStart || !weekEnd) {
+      return res.status(400).json({ error: 'Workouts array, weekStart, and weekEnd are required' });
+    }
+
+    const summary = generateWeeklySummary(workouts, weekStart, weekEnd);
+    
+    return res.json({ 
+      success: true, 
+      summary: summary,
+      type: 'weekly'
+    });
+
+  } catch (error) {
+    console.error('Weekly summary error:', error);
+    res.status(500).json({ error: 'Failed to generate weekly summary' });
+  }
+});
 
 module.exports = router;

@@ -11,7 +11,8 @@ import {
   Plus,
   Trash2,
   Volume2,
-  Upload
+  Upload,
+  BarChart3
 } from 'lucide-react';
 
 interface Exercise {
@@ -36,6 +37,12 @@ const AddWorkout: React.FC = () => {
   const [currentSets, setCurrentSets] = useState(1);
   const [currentReps, setCurrentReps] = useState(10);
   const [currentWeight, setCurrentWeight] = useState(0);
+  
+  // Session context for incremental logging
+  const [sessionContext, setSessionContext] = useState({
+    lastExercise: '',
+    lastSetNumber: 0
+  });
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -115,9 +122,52 @@ const AddWorkout: React.FC = () => {
       toast.dismiss(loadingToast);
 
       if (response.data.success && response.data.data) {
-        setExercises(prev => [...prev, response.data.data]);
+        const parsedData = response.data.data;
+        
+        // Use incremental parsing with session context
+        const incrementalResponse = await api.post('/voice/parse-incremental', {
+          transcript: response.data.transcript,
+          sessionContext: sessionContext
+        });
+
+        if (incrementalResponse.data.success) {
+          const incrementalData = incrementalResponse.data.data;
+          
+          // Update session context
+          setSessionContext({
+            lastExercise: incrementalData.exercise,
+            lastSetNumber: incrementalData.setNumber
+          });
+
+          // Handle the parsed data based on whether it's a new exercise or continuation
+          if (incrementalData.isNewExercise) {
+            // Add as new exercise
+            setExercises(prev => [...prev, incrementalData]);
+            toast.success(`✅ Added ${incrementalData.exercise} - Set ${incrementalData.setNumber}!`);
+          } else {
+            // Add set to existing exercise
+            setExercises(prev => {
+              const updatedExercises = [...prev];
+              const lastExerciseIndex = updatedExercises.length - 1;
+              
+              if (lastExerciseIndex >= 0 && 
+                  updatedExercises[lastExerciseIndex].exercise === incrementalData.exercise) {
+                updatedExercises[lastExerciseIndex].sets.push(incrementalData.sets[0]);
+                return updatedExercises;
+              } else {
+                // Fallback: add as new exercise
+                return [...prev, incrementalData];
+              }
+            });
+            toast.success(`✅ Added Set ${incrementalData.setNumber} to ${incrementalData.exercise}!`);
+          }
+        } else {
+          // Fallback to original parsing
+          setExercises(prev => [...prev, parsedData]);
+          toast.success(`✅ Added ${parsedData.exercise} with ${parsedData.sets.length} sets!`);
+        }
+        
         setAudioBlob(null);
-        toast.success(`✅ Added ${response.data.data.exercise} with ${response.data.data.sets.length} sets!`);
       } else {
         toast.error('Could not parse workout from audio');
       }
@@ -238,6 +288,29 @@ const AddWorkout: React.FC = () => {
       toast.error(error.response?.data?.error || 'Failed to save workout');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const generateSummary = async (type: 'daily' | 'weekly') => {
+    try {
+      if (type === 'daily') {
+        const response = await api.post('/voice/summary/daily', {
+          exercises: exercises,
+          date: date
+        });
+        
+        if (response.data.success) {
+          // Show summary in a modal or alert
+          alert(response.data.summary);
+        }
+      } else if (type === 'weekly') {
+        // For weekly summary, we'd need to fetch workouts from the current week
+        // This is a placeholder - you'd implement the weekly logic here
+        toast.info('Weekly summary feature coming soon!');
+      }
+    } catch (error: any) {
+      console.error('Error generating summary:', error);
+      toast.error('Failed to generate summary');
     }
   };
 
@@ -507,6 +580,15 @@ const AddWorkout: React.FC = () => {
             className="btn-secondary"
           >
             Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => generateSummary('daily')}
+            disabled={exercises.length === 0}
+            className="btn-secondary flex items-center space-x-2"
+          >
+            <BarChart3 className="h-5 w-5" />
+            <span>Summary</span>
           </button>
           <button
             type="submit"
