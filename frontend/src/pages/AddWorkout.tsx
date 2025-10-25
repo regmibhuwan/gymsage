@@ -50,6 +50,8 @@ const AddWorkout: React.FC = () => {
   const [summaryModal, setSummaryModal] = useState({
     isOpen: false,
     content: '',
+    tableData: null as any[] | null,
+    stats: null as any,
     type: 'daily' as 'daily' | 'weekly'
   });
 
@@ -260,6 +262,25 @@ const AddWorkout: React.FC = () => {
     }));
   };
 
+  const addSetWithVoice = async (exerciseIndex: number) => {
+    const exercise = exercises[exerciseIndex];
+    if (!exercise) return;
+
+    // Update session context to the current exercise
+    setSessionContext({
+      lastExercise: exercise.exercise,
+      lastSetNumber: exercise.sets.length
+    });
+
+    // Start recording
+    if (!isRecording) {
+      startRecording();
+      toast.success(`Recording for ${exercise.exercise} - Set ${exercise.sets.length + 1}. Say "next set" or the reps and weight.`);
+    } else {
+      toast.success('Already recording. Stop recording first.');
+    }
+  };
+
   const removeSet = (exerciseIndex: number, setIndex: number) => {
     setExercises(prev => prev.map((exercise, index) => {
       if (index === exerciseIndex) {
@@ -312,6 +333,8 @@ const AddWorkout: React.FC = () => {
           setSummaryModal({
             isOpen: true,
             content: response.data.summary,
+            tableData: response.data.tableData,
+            stats: response.data.stats,
             type: 'daily'
           });
         }
@@ -342,6 +365,8 @@ const AddWorkout: React.FC = () => {
             setSummaryModal({
               isOpen: true,
               content: response.data.summary,
+              tableData: response.data.tableData,
+              stats: response.data.stats,
               type: 'weekly'
             });
           }
@@ -631,14 +656,24 @@ const AddWorkout: React.FC = () => {
                       </div>
                     ))}
                     
-                    <button
-                      type="button"
-                      onClick={() => addSet(exerciseIndex)}
-                      className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center space-x-1"
-                    >
-                      <Plus className="h-4 w-4" />
-                      <span>Add Set</span>
-                    </button>
+                    <div className="flex items-center space-x-3 mt-3">
+                      <button
+                        type="button"
+                        onClick={() => addSet(exerciseIndex)}
+                        className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center space-x-1"
+                      >
+                        <Plus className="h-4 w-4" />
+                        <span>Add Set</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addSetWithVoice(exerciseIndex)}
+                        className="text-green-600 hover:text-green-700 text-sm font-medium flex items-center space-x-1"
+                      >
+                        <Mic className="h-4 w-4" />
+                        <span>Add Set with Voice</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -694,6 +729,8 @@ const AddWorkout: React.FC = () => {
         isOpen={summaryModal.isOpen}
         onClose={() => setSummaryModal(prev => ({ ...prev, isOpen: false }))}
         summary={summaryModal.content}
+        tableData={summaryModal.tableData}
+        stats={summaryModal.stats}
         type={summaryModal.type}
       />
     </div>

@@ -528,7 +528,7 @@ async function parseIncrementalWorkout(transcript, sessionContext) {
  * Generate daily workout summary
  * @param {Array} exercises - Array of exercise objects
  * @param {string} date - Workout date
- * @returns {string} Formatted daily summary
+ * @returns {Object} Structured daily summary with both text and table data
  */
 function generateDailySummary(exercises, date) {
   const workoutDate = new Date(date);
@@ -538,28 +538,52 @@ function generateDailySummary(exercises, date) {
     year: 'numeric'
   });
 
-  let summary = `🏋️ Workout Log — ${formattedDate}\n`;
-  summary += '--------------------------------\n';
+  // Generate text summary
+  let textSummary = `🏋️ Workout Log — ${formattedDate}\n`;
+  textSummary += '--------------------------------\n';
 
   let totalSets = 0;
+  const tableData = [];
 
   exercises.forEach(exercise => {
-    summary += `${exercise.exercise}:\n`;
+    textSummary += `${exercise.exercise}:\n`;
+    
+    const exerciseData = {
+      exercise: exercise.exercise,
+      sets: []
+    };
     
     exercise.sets.forEach(set => {
       const weightLbs = Math.round(set.weight_kg * 2.20462); // Convert back to lbs for display
-      summary += `  • Set ${set.set} — ${set.reps} reps × ${weightLbs} lb\n`;
+      textSummary += `  • Set ${set.set} — ${set.reps} reps × ${weightLbs} lb\n`;
+      
+      exerciseData.sets.push({
+        set: set.set,
+        reps: set.reps,
+        weight_kg: set.weight_kg,
+        weight_lbs: weightLbs
+      });
+      
       totalSets++;
     });
     
-    summary += '\n';
+    tableData.push(exerciseData);
+    textSummary += '\n';
   });
 
-  summary += '--------------------------------\n';
-  summary += `Total Exercises: ${exercises.length}\n`;
-  summary += `Total Sets: ${totalSets}`;
+  textSummary += '--------------------------------\n';
+  textSummary += `Total Exercises: ${exercises.length}\n`;
+  textSummary += `Total Sets: ${totalSets}`;
 
-  return summary;
+  return {
+    text: textSummary,
+    tableData: tableData,
+    stats: {
+      totalExercises: exercises.length,
+      totalSets: totalSets,
+      date: formattedDate
+    }
+  };
 }
 
 /**
@@ -567,7 +591,7 @@ function generateDailySummary(exercises, date) {
  * @param {Array} workouts - Array of workout objects for the week
  * @param {string} weekStart - Start date of the week
  * @param {string} weekEnd - End date of the week
- * @returns {string} Formatted weekly summary
+ * @returns {Object} Structured weekly summary with both text and table data
  */
 function generateWeeklySummary(workouts, weekStart, weekEnd) {
   const startDate = new Date(weekStart);
@@ -576,13 +600,15 @@ function generateWeeklySummary(workouts, weekStart, weekEnd) {
   const formattedStart = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const formattedEnd = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-  let summary = `📅 Weekly Summary (${formattedStart}–${formattedEnd})\n`;
-  summary += '--------------------------------\n';
+  // Generate text summary
+  let textSummary = `📅 Weekly Summary (${formattedStart}–${formattedEnd})\n`;
+  textSummary += '--------------------------------\n';
 
   // Aggregate exercise data
   const exerciseStats = {};
   let totalWorkouts = workouts.length;
   let totalSets = 0;
+  const tableData = [];
 
   workouts.forEach(workout => {
     workout.exercises.forEach(exercise => {
@@ -591,7 +617,9 @@ function generateWeeklySummary(workouts, weekStart, weekEnd) {
       if (!exerciseStats[exerciseName]) {
         exerciseStats[exerciseName] = {
           totalSets: 0,
-          maxWeight: 0
+          maxWeight: 0,
+          totalReps: 0,
+          workouts: new Set()
         };
       }
 
@@ -601,6 +629,8 @@ function generateWeeklySummary(workouts, weekStart, weekEnd) {
           exerciseStats[exerciseName].maxWeight, 
           set.weight_kg
         );
+        exerciseStats[exerciseName].totalReps += set.reps;
+        exerciseStats[exerciseName].workouts.add(workout.date);
         totalSets++;
       });
     });
@@ -609,14 +639,33 @@ function generateWeeklySummary(workouts, weekStart, weekEnd) {
   // Generate summary for each exercise
   Object.entries(exerciseStats).forEach(([exerciseName, stats]) => {
     const maxWeightLbs = Math.round(stats.maxWeight * 2.20462);
-    summary += `${exerciseName} — ${stats.totalSets} sets total, Max weight: ${maxWeightLbs} lb\n`;
+    textSummary += `${exerciseName} — ${stats.totalSets} sets total, Max weight: ${maxWeightLbs} lb\n`;
+    
+    tableData.push({
+      exercise: exerciseName,
+      totalSets: stats.totalSets,
+      totalReps: stats.totalReps,
+      maxWeightKg: stats.maxWeight,
+      maxWeightLbs: maxWeightLbs,
+      workoutsCount: stats.workouts.size,
+      avgSetsPerWorkout: Math.round((stats.totalSets / stats.workouts.size) * 10) / 10
+    });
   });
 
-  summary += '--------------------------------\n';
-  summary += `Total Workouts: ${totalWorkouts}\n`;
-  summary += `Total Sets: ${totalSets}`;
+  textSummary += '--------------------------------\n';
+  textSummary += `Total Workouts: ${totalWorkouts}\n`;
+  textSummary += `Total Sets: ${totalSets}`;
 
-  return summary;
+  return {
+    text: textSummary,
+    tableData: tableData,
+    stats: {
+      totalWorkouts: totalWorkouts,
+      totalSets: totalSets,
+      weekRange: `${formattedStart}–${formattedEnd}`,
+      uniqueExercises: Object.keys(exerciseStats).length
+    }
+  };
 }
 
 /**
@@ -635,7 +684,9 @@ router.post('/summary/daily', authenticateToken, async (req, res) => {
     
     return res.json({ 
       success: true, 
-      summary: summary,
+      summary: summary.text,
+      tableData: summary.tableData,
+      stats: summary.stats,
       type: 'daily'
     });
 
@@ -661,7 +712,9 @@ router.post('/summary/weekly', authenticateToken, async (req, res) => {
     
     return res.json({ 
       success: true, 
-      summary: summary,
+      summary: summary.text,
+      tableData: summary.tableData,
+      stats: summary.stats,
       type: 'weekly'
     });
 

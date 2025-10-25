@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../utils/api';
+import SummaryModal from '../components/SummaryModal';
 import { 
   Plus, 
   Calendar, 
@@ -42,6 +43,15 @@ const Dashboard: React.FC = () => {
     thisWeekWorkouts: 0,
     totalExercises: 0,
     avgWorkoutsPerWeek: 0
+  });
+
+  // Summary modal state
+  const [summaryModal, setSummaryModal] = useState({
+    isOpen: false,
+    content: '',
+    tableData: null as any[] | null,
+    stats: null as any,
+    type: 'daily' as 'daily' | 'weekly'
   });
 
   useEffect(() => {
@@ -132,6 +142,71 @@ const Dashboard: React.FC = () => {
     setExpandedWorkouts(newExpanded);
   };
 
+  const generateSummary = async (type: 'daily' | 'weekly') => {
+    try {
+      if (type === 'daily') {
+        // Get today's workout
+        const today = new Date().toISOString().split('T')[0];
+        const todayWorkout = workouts.find(workout => workout.date === today);
+        
+        if (!todayWorkout) {
+          toast.error('No workout found for today');
+          return;
+        }
+
+        const response = await api.post('/voice/summary/daily', {
+          exercises: todayWorkout.exercises,
+          date: today
+        });
+        
+        if (response.data.success) {
+          setSummaryModal({
+            isOpen: true,
+            content: response.data.summary,
+            tableData: response.data.tableData,
+            stats: response.data.stats,
+            type: 'daily'
+          });
+        }
+      } else if (type === 'weekly') {
+        // Get workouts from the current week
+        const now = new Date();
+        const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        
+        const weekWorkouts = workouts.filter(workout => {
+          const workoutDate = new Date(workout.date);
+          return workoutDate >= weekStart && workoutDate <= weekEnd;
+        });
+        
+        if (weekWorkouts.length === 0) {
+          toast.error('No workouts found for this week');
+          return;
+        }
+
+        const response = await api.post('/voice/summary/weekly', {
+          workouts: weekWorkouts,
+          weekStart: weekStart.toISOString().split('T')[0],
+          weekEnd: weekEnd.toISOString().split('T')[0]
+        });
+        
+        if (response.data.success) {
+          setSummaryModal({
+            isOpen: true,
+            content: response.data.summary,
+            tableData: response.data.tableData,
+            stats: response.data.stats,
+            type: 'weekly'
+          });
+        }
+      }
+    } catch (error: any) {
+      console.error('Error generating summary:', error);
+      toast.error('Failed to generate summary');
+    }
+  };
+
   const groupWorkoutsByDate = (workouts: Workout[]) => {
     if (!workouts || !Array.isArray(workouts)) {
       return [];
@@ -197,13 +272,29 @@ const Dashboard: React.FC = () => {
             <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
             <p className="text-gray-600">Track your fitness progress</p>
           </div>
-          <Link
-            to="/add-workout"
-            className="btn-primary flex items-center space-x-2"
-          >
-            <Plus className="h-5 w-5" />
-            <span>Add Workout</span>
-          </Link>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => generateSummary('daily')}
+              className="btn-secondary flex items-center space-x-2"
+            >
+              <BarChart3 className="h-5 w-5" />
+              <span>Daily Summary</span>
+            </button>
+            <button
+              onClick={() => generateSummary('weekly')}
+              className="btn-secondary flex items-center space-x-2"
+            >
+              <BarChart3 className="h-5 w-5" />
+              <span>Weekly Summary</span>
+            </button>
+            <Link
+              to="/add-workout"
+              className="btn-primary flex items-center space-x-2"
+            >
+              <Plus className="h-5 w-5" />
+              <span>Add Workout</span>
+            </Link>
+          </div>
         </div>
 
         {/* Empty State */}
@@ -233,13 +324,29 @@ const Dashboard: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-600">Track your fitness progress</p>
         </div>
-        <Link
-          to="/add-workout"
-          className="btn-primary flex items-center space-x-2"
-        >
-          <Plus className="h-5 w-5" />
-          <span>Add Workout</span>
-        </Link>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => generateSummary('daily')}
+            className="btn-secondary flex items-center space-x-2"
+          >
+            <BarChart3 className="h-5 w-5" />
+            <span>Daily Summary</span>
+          </button>
+          <button
+            onClick={() => generateSummary('weekly')}
+            className="btn-secondary flex items-center space-x-2"
+          >
+            <BarChart3 className="h-5 w-5" />
+            <span>Weekly Summary</span>
+          </button>
+          <Link
+            to="/add-workout"
+            className="btn-primary flex items-center space-x-2"
+          >
+            <Plus className="h-5 w-5" />
+            <span>Add Workout</span>
+          </Link>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -497,6 +604,16 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       )}
+      
+      {/* Summary Modal */}
+      <SummaryModal
+        isOpen={summaryModal.isOpen}
+        onClose={() => setSummaryModal(prev => ({ ...prev, isOpen: false }))}
+        summary={summaryModal.content}
+        tableData={summaryModal.tableData}
+        stats={summaryModal.stats}
+        type={summaryModal.type}
+      />
     </div>
   );
 };
