@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../utils/api';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Calendar, Dumbbell, Edit, Trash2 } from 'lucide-react';
 
@@ -33,7 +33,7 @@ const WorkoutDetail: React.FC = () => {
 
   const fetchWorkout = async () => {
     try {
-      const response = await axios.get(`/workouts/${id}`);
+      const response = await api.get(`/workouts/${id}`);
       setWorkout(response.data.workout);
     } catch (error) {
       console.error('Error fetching workout:', error);
@@ -50,7 +50,7 @@ const WorkoutDetail: React.FC = () => {
     }
 
     try {
-      await axios.delete(`/workouts/${workout.id}`);
+      await api.delete(`/workouts/${workout.id}`);
       toast.success('Workout deleted successfully');
       navigate('/dashboard');
     } catch (error) {
