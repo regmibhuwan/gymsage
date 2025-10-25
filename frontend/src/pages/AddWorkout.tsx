@@ -2,17 +2,19 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
+import SummaryModal from '../components/SummaryModal';
 import { 
   Mic, 
   MicOff, 
-  Play, 
   Save, 
   X, 
   Plus,
   Trash2,
   Volume2,
   Upload,
-  BarChart3
+  BarChart3,
+  Clock,
+  Activity
 } from 'lucide-react';
 
 interface Exercise {
@@ -42,6 +44,13 @@ const AddWorkout: React.FC = () => {
   const [sessionContext, setSessionContext] = useState({
     lastExercise: '',
     lastSetNumber: 0
+  });
+
+  // Summary modal state
+  const [summaryModal, setSummaryModal] = useState({
+    isOpen: false,
+    content: '',
+    type: 'daily' as 'daily' | 'weekly'
   });
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -300,13 +309,45 @@ const AddWorkout: React.FC = () => {
         });
         
         if (response.data.success) {
-          // Show summary in a modal or alert
-          alert(response.data.summary);
+          setSummaryModal({
+            isOpen: true,
+            content: response.data.summary,
+            type: 'daily'
+          });
         }
       } else if (type === 'weekly') {
-        // For weekly summary, we'd need to fetch workouts from the current week
-        // This is a placeholder - you'd implement the weekly logic here
-        toast('Weekly summary feature coming soon!');
+        // Fetch workouts from the current week
+        const now = new Date();
+        const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        
+        try {
+          const workoutsResponse = await api.get('/workouts');
+          const allWorkouts = workoutsResponse.data.workouts || [];
+          
+          // Filter workouts from this week
+          const weekWorkouts = allWorkouts.filter((workout: any) => {
+            const workoutDate = new Date(workout.date);
+            return workoutDate >= weekStart && workoutDate <= weekEnd;
+          });
+          
+          const response = await api.post('/voice/summary/weekly', {
+            workouts: weekWorkouts,
+            weekStart: weekStart.toISOString().split('T')[0],
+            weekEnd: weekEnd.toISOString().split('T')[0]
+          });
+          
+          if (response.data.success) {
+            setSummaryModal({
+              isOpen: true,
+              content: response.data.summary,
+              type: 'weekly'
+            });
+          }
+        } catch (error) {
+          toast.error('Failed to fetch weekly workouts');
+        }
       }
     } catch (error: any) {
       console.error('Error generating summary:', error);
@@ -498,6 +539,32 @@ const AddWorkout: React.FC = () => {
           </div>
         </div>
 
+        {/* Session Context Display */}
+        {(sessionContext.lastExercise || exercises.length > 0) && (
+          <div className="card bg-blue-50 border-blue-200">
+            <div className="flex items-center space-x-3 mb-3">
+              <Activity className="h-5 w-5 text-blue-600" />
+              <h2 className="text-lg font-semibold text-blue-900">Session Context</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="flex items-center space-x-2">
+                <Clock className="h-4 w-4 text-blue-600" />
+                <span className="text-blue-800">
+                  <strong>Last Exercise:</strong> {sessionContext.lastExercise || 'None'}
+                </span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="text-blue-800">
+                  <strong>Last Set:</strong> {sessionContext.lastSetNumber || 0}
+                </span>
+              </div>
+            </div>
+            <div className="mt-3 text-xs text-blue-700">
+              💡 Say "next set" to continue the same exercise, or mention a new exercise name to start fresh.
+            </div>
+          </div>
+        )}
+
         {/* Exercises List */}
         {exercises.length > 0 && (
           <div className="card">
@@ -507,9 +574,16 @@ const AddWorkout: React.FC = () => {
               {exercises.map((exercise, exerciseIndex) => (
                 <div key={exerciseIndex} className="border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-gray-900 capitalize">
-                      {exercise.exercise}
-                    </h3>
+                    <div className="flex items-center space-x-2">
+                      <h3 className="text-lg font-medium text-gray-900 capitalize">
+                        {exercise.exercise}
+                      </h3>
+                      {exercise.sets.length > 1 && (
+                        <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                          {exercise.sets.length} sets
+                        </span>
+                      )}
+                    </div>
                     <button
                       type="button"
                       onClick={() => removeExercise(exerciseIndex)}
@@ -588,7 +662,15 @@ const AddWorkout: React.FC = () => {
             className="btn-secondary flex items-center space-x-2"
           >
             <BarChart3 className="h-5 w-5" />
-            <span>Summary</span>
+            <span>Daily Summary</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => generateSummary('weekly')}
+            className="btn-secondary flex items-center space-x-2"
+          >
+            <BarChart3 className="h-5 w-5" />
+            <span>Weekly Summary</span>
           </button>
           <button
             type="submit"
@@ -606,6 +688,14 @@ const AddWorkout: React.FC = () => {
           </button>
         </div>
       </form>
+      
+      {/* Summary Modal */}
+      <SummaryModal
+        isOpen={summaryModal.isOpen}
+        onClose={() => setSummaryModal(prev => ({ ...prev, isOpen: false }))}
+        summary={summaryModal.content}
+        type={summaryModal.type}
+      />
     </div>
   );
 };
