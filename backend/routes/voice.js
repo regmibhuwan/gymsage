@@ -526,6 +526,12 @@ async function parseIncrementalWorkout(transcript, sessionContext) {
     /(?:tricep (?:extension|dip)s?|triceps (?:extension|dip)s?)/,
     /(?:skull crushers?)/,
     
+    // Bodyweight exercises
+    /(?:push\s*ups?|pushups?|push\s*ups?)/,
+    /(?:sit\s*ups?|situps?|crunches?)/,
+    /(?:burpees?)/,
+    /(?:mountain climbers?)/,
+    
     // Generic patterns
     /(?:dumbbell|db)\s+(\w+(?:\s+\w+)?)/,
     /(?:barbell|bb)\s+(\w+(?:\s+\w+)?)/,
@@ -540,6 +546,14 @@ async function parseIncrementalWorkout(transcript, sessionContext) {
       } else {
         exerciseName = match[0].trim();
       }
+      
+      // Clean up exercise name - remove set indicators and other unwanted text
+      exerciseName = exerciseName
+        .replace(/\b(?:set\s+\d+|first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)\b/gi, '')
+        .replace(/\s*,\s*/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
       break;
     }
   }
