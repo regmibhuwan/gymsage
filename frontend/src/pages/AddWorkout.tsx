@@ -62,6 +62,10 @@ const AddWorkout: React.FC = () => {
     exerciseName: ''
   });
 
+  // Exercise editing state
+  const [editingExercise, setEditingExercise] = useState<number | null>(null);
+  const [editingExerciseName, setEditingExerciseName] = useState('');
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const navigate = useNavigate();
@@ -262,6 +266,36 @@ const AddWorkout: React.FC = () => {
       
       return newExercises;
     });
+  };
+
+  const startEditingExercise = (index: number) => {
+    setEditingExercise(index);
+    setEditingExerciseName(exercises[index].exercise);
+  };
+
+  const saveExerciseName = (index: number) => {
+    if (editingExerciseName.trim()) {
+      setExercises(prev => prev.map((exercise, i) => 
+        i === index ? { ...exercise, exercise: editingExerciseName.trim() } : exercise
+      ));
+      
+      // Update session context if this was the last exercise
+      if (index === exercises.length - 1) {
+        setSessionContext(prev => ({
+          ...prev,
+          lastExercise: editingExerciseName.trim()
+        }));
+      }
+      
+      toast.success('Exercise name updated');
+    }
+    setEditingExercise(null);
+    setEditingExerciseName('');
+  };
+
+  const cancelEditingExercise = () => {
+    setEditingExercise(null);
+    setEditingExerciseName('');
   };
 
   const updateSet = (exerciseIndex: number, setIndex: number, field: 'reps' | 'weight_kg', value: number) => {
@@ -666,9 +700,56 @@ const AddWorkout: React.FC = () => {
                 <div key={exerciseIndex} className="border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-2">
-                      <h3 className="text-lg font-medium text-gray-900 capitalize">
-                        {exercise.exercise}
-                      </h3>
+                      {editingExercise === exerciseIndex ? (
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            value={editingExerciseName}
+                            onChange={(e) => setEditingExerciseName(e.target.value)}
+                            className="text-lg font-medium text-gray-900 border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                saveExerciseName(exerciseIndex);
+                              } else if (e.key === 'Escape') {
+                                cancelEditingExercise();
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => saveExerciseName(exerciseIndex)}
+                            className="text-green-600 hover:text-green-700"
+                            title="Save"
+                          >
+                            <Save className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelEditingExercise}
+                            className="text-red-600 hover:text-red-700"
+                            title="Cancel"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <h3 className="text-lg font-medium text-gray-900 capitalize">
+                            {exercise.exercise}
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={() => startEditingExercise(exerciseIndex)}
+                            className="text-blue-600 hover:text-blue-700"
+                            title="Edit exercise name"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
                       {exercise.sets.length > 1 && (
                         <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
                           {exercise.sets.length} sets
