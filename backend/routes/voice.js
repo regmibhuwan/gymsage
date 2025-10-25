@@ -482,6 +482,9 @@ function parseIndividualSets(text) {
 async function parseIncrementalWorkout(transcript, sessionContext) {
   const text = transcript.toLowerCase().trim();
   
+  console.log('🔊 Parsing voice transcript:', transcript);
+  console.log('📊 Session context:', sessionContext);
+  
   // Check for continuation keywords
   const continuationKeywords = [
     'next set', 'another set', 'second set', 'third set', 'fourth set', 'fifth set',
@@ -490,6 +493,8 @@ async function parseIncrementalWorkout(transcript, sessionContext) {
   
   const isContinuation = continuationKeywords.some(keyword => text.includes(keyword)) || 
                         sessionContext.isVoiceContinuation; // Special flag for voice-added sets
+  
+  console.log('🔄 Is continuation:', isContinuation);
   
   // Extract exercise name if mentioned
   let exerciseName = null;
@@ -582,6 +587,11 @@ async function parseIncrementalWorkout(transcript, sessionContext) {
   const weightMatch = text.match(weightPattern);
   const setsMatch = text.match(setsPattern);
 
+  console.log('📝 Extracted values:');
+  console.log('  Reps:', repsMatch ? repsMatch[1] : 'none');
+  console.log('  Weight:', weightMatch ? weightMatch[1] + ' ' + weightMatch[2] : 'none');
+  console.log('  Sets:', setsMatch ? setsMatch[1] : 'none');
+
   const reps = repsMatch ? parseInt(repsMatch[1]) : 1; // Default to 1 rep if not mentioned
   let weight = weightMatch ? parseFloat(weightMatch[1]) : 0;
   const numSets = setsMatch ? parseInt(setsMatch[1]) : 1; // Default to 1 set if not mentioned
@@ -629,6 +639,9 @@ async function parseIncrementalWorkout(transcript, sessionContext) {
   const individualSets = parseIndividualSets(text);
   let sets = [];
   
+  console.log('🎯 Individual sets found:', individualSets.length);
+  console.log('📊 Number of sets to create:', numSets);
+  
   if (individualSets.length > 0) {
     // Individual sets found - use them
     sets = individualSets.map((setData, index) => ({
@@ -638,6 +651,7 @@ async function parseIncrementalWorkout(transcript, sessionContext) {
       weight_lbs: setData.weight_lbs,
       weight_unit: setData.weight_unit
     }));
+    console.log('✅ Created individual sets:', sets.length);
   } else {
     // No individual sets - create uniform sets
     for (let i = 0; i < numSets; i++) {
@@ -649,7 +663,10 @@ async function parseIncrementalWorkout(transcript, sessionContext) {
         weight_unit: weightUnit
       });
     }
+    console.log('✅ Created uniform sets:', sets.length);
   }
+  
+  console.log('🏋️ Final sets:', JSON.stringify(sets, null, 2));
 
   // Return data structure
   const result = {
