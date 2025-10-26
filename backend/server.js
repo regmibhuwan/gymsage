@@ -40,8 +40,8 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/workouts', workoutRoutes);
+app.use('/api/photos/enhanced', photoEnhancedRoutes); // Must be before /api/photos
 app.use('/api/photos', photoRoutes);
-app.use('/api/photos/enhanced', photoEnhancedRoutes);
 app.use('/api/coach', coachRoutes);
 app.use('/api/voice', voiceRoutes);
 
