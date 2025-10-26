@@ -32,41 +32,91 @@ router.post('/chat', authenticateToken, async (req, res) => {
 
     const { data: photos } = await supabase
       .from('photos')
-      .select('view, analysis_data, created_at')
+      .select('muscle_group, analysis_data, comparison_data, progress_score, created_at')
       .eq('user_id', req.user.id)
       .not('analysis_data', 'is', null)
       .order('created_at', { ascending: false })
-      .limit(5);
+      .limit(10);
+
+    const { data: insights } = await supabase
+      .from('muscle_progress_insights')
+      .select('muscle_group, insight_type, insight_text, confidence_score, created_at')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .limit(15);
+
+    const { data: comparisons } = await supabase
+      .from('photo_comparisons')
+      .select('muscle_group, growth_percentage, symmetry_score, created_at')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .limit(10);
 
     // Build context for AI
     const context = {
       user: {
         name: req.user.name,
         recentWorkouts: workouts || [],
-        recentAnalyses: photos || []
+        recentPhotoAnalyses: photos || [],
+        progressInsights: insights || [],
+        muscleComparisons: comparisons || []
       }
     };
 
-    const systemPrompt = `You are an AI fitness coach named GymSage. You help users with their fitness journey by providing personalized advice based on their workout data and progress photos.
+    // Extract muscle-specific stats for better context
+    const muscleStats = {};
+    if (photos) {
+      photos.forEach(photo => {
+        if (!muscleStats[photo.muscle_group]) {
+          muscleStats[photo.muscle_group] = {
+            photo_count: 0,
+            avg_progress_score: 0,
+            latest_analysis: null
+          };
+        }
+        muscleStats[photo.muscle_group].photo_count++;
+        muscleStats[photo.muscle_group].avg_progress_score += (photo.progress_score || 0);
+        if (!muscleStats[photo.muscle_group].latest_analysis) {
+          muscleStats[photo.muscle_group].latest_analysis = photo.analysis_data?.summary;
+        }
+      });
+      
+      // Calculate averages
+      Object.keys(muscleStats).forEach(muscle => {
+        muscleStats[muscle].avg_progress_score = 
+          Math.round(muscleStats[muscle].avg_progress_score / muscleStats[muscle].photo_count);
+      });
+    }
+
+    const systemPrompt = `You are an AI fitness coach named GymSage. You help users with their fitness journey by providing personalized advice based on their workout data, progress photos, and muscle-specific analysis.
 
 User Context:
 - Name: ${context.user.name}
 - Recent Workouts: ${JSON.stringify(context.user.recentWorkouts)}
-- Recent Photo Analyses: ${JSON.stringify(context.user.recentAnalyses)}
+- Muscle Group Stats: ${JSON.stringify(muscleStats)}
+- Recent Progress Insights: ${JSON.stringify(context.user.progressInsights)}
+- Recent Comparisons: ${JSON.stringify(context.user.muscleComparisons)}
 
 Guidelines:
-1. Provide actionable, specific advice
-2. Consider the user's workout patterns and progress
-3. Suggest program modifications when appropriate
-4. Include nutrition tips when relevant
-5. Be encouraging and motivational
-6. Keep responses concise but informative
-7. Always respond in JSON format with this structure:
+1. Answer questions about specific muscle groups using the progress insights and comparison data
+2. When asked "Is my [muscle] growing?", reference the growth_percentage and progress insights
+3. When asked "Which muscle improved most?", compare the progress scores and growth percentages
+4. When asked about cutting/bulking, analyze overall trends and body composition
+5. Suggest specific exercises based on muscle group weaknesses
+6. Provide actionable, specific advice
+7. Be encouraging and motivational
+8. Keep responses concise but informative
+9. Always respond in JSON format with this structure:
 {
   "response": "Your main response text",
   "suggestions": ["suggestion1", "suggestion2", "suggestion3"],
   "program_mods": ["modification1", "modification2"],
-  "nutrition_tips": ["tip1", "tip2"]
+  "nutrition_tips": ["tip1", "tip2"],
+  "muscle_specific_advice": {
+    "muscle_group": "relevant muscle if asked",
+    "current_state": "description",
+    "recommendations": ["rec1", "rec2"]
+  }
 }
 
 If the user asks about something not related to fitness, politely redirect them back to fitness topics.`;

@@ -7,6 +7,7 @@ require('dotenv').config();
 const authRoutes = require('./routes/auth');
 const workoutRoutes = require('./routes/workouts');
 const photoRoutes = require('./routes/photos');
+const photoEnhancedRoutes = require('./routes/photos_enhanced');
 const coachRoutes = require('./routes/coach');
 const voiceRoutes = require('./routes/voice');
 
@@ -40,6 +41,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/api/auth', authRoutes);
 app.use('/api/workouts', workoutRoutes);
 app.use('/api/photos', photoRoutes);
+app.use('/api/photos/enhanced', photoEnhancedRoutes);
 app.use('/api/coach', coachRoutes);
 app.use('/api/voice', voiceRoutes);
 
