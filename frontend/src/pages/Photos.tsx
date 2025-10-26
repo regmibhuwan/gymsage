@@ -126,7 +126,7 @@ const Photos: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Progress Photos</h1>
-          <p className="text-gray-600">AI-powered body analysis and tracking</p>
+          <p className="text-gray-600">Track your fitness journey with AI-powered analysis</p>
         </div>
         <button
           onClick={() => setUploadModalOpen(true)}
