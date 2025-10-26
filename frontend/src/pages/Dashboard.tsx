@@ -147,9 +147,16 @@ const Dashboard: React.FC = () => {
       if (type === 'daily') {
         // Get all workouts for today and aggregate exercises
         const today = new Date().toISOString().split('T')[0];
+        
+        console.log('📅 Today\'s date:', today);
+        console.log('📊 All workouts:', workouts);
+        
         const todayWorkouts = workouts.filter(workout => workout.date === today);
         
+        console.log('🎯 Today\'s workouts:', todayWorkouts);
+        
         if (todayWorkouts.length === 0) {
+          console.error('❌ No workouts found for today');
           toast.error('No workout found for today');
           return;
         }

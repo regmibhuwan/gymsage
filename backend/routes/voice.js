@@ -615,8 +615,10 @@ async function parseIncrementalWorkout(transcript, sessionContext) {
     finalExerciseName = words.slice(0, Math.min(3, words.length)).join(' ');
   }
 
-  // Extract reps and weight
+  // Extract reps and weight - improved patterns
+  // Look for "number reps" or just "number" if user is continuing (like "4 reps" or "4")
   const repsPattern = /(\d+)\s*(?:reps?|repetitions?|times?)\b/i;
+  const simpleNumberPattern = /\b(\d+)\b/; // Simple number pattern for "4" or "4 reps"
   const weightPattern = /(\d+(?:\.\d+)?)\s*(?:kg|kilograms?|kilos?|lbs?|pounds?|lb)\b/i;
   const setsPattern = /(\d+)\s*(?:sets?|x|times)/i;
 
@@ -629,7 +631,23 @@ async function parseIncrementalWorkout(transcript, sessionContext) {
   console.log('  Weight:', weightMatch ? weightMatch[1] + ' ' + weightMatch[2] : 'none');
   console.log('  Sets:', setsMatch ? setsMatch[1] : 'none');
 
-  const reps = repsMatch ? parseInt(repsMatch[1]) : 1; // Default to 1 rep if not mentioned
+  let reps = repsMatch ? parseInt(repsMatch[1]) : null;
+  
+  // If no explicit "reps" keyword, look for standalone numbers
+  if (!reps && isContinuation) {
+    const simpleMatch = text.match(simpleNumberPattern);
+    if (simpleMatch) {
+      reps = parseInt(simpleMatch[1]);
+      console.log('  📢 Found number without "reps":', reps);
+    }
+  }
+  
+  // Only default to 1 if we have NO numbers at all
+  if (!reps) {
+    console.log('  ⚠️ No reps found, defaulting to 1');
+    reps = 1;
+  }
+  
   let weight = weightMatch ? parseFloat(weightMatch[1]) : 0;
   const numSets = setsMatch ? parseInt(setsMatch[1]) : 1; // Default to 1 set if not mentioned
 
