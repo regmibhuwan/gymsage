@@ -17,14 +17,14 @@ CREATE INDEX IF NOT EXISTS idx_photos_created_at ON photos(user_id, created_at D
 
 -- Create muscle_progress_insights table for AI-generated insights
 CREATE TABLE IF NOT EXISTS muscle_progress_insights (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     muscle_group VARCHAR(50) NOT NULL,
     insight_type VARCHAR(50) NOT NULL, -- 'growth', 'loss', 'symmetry', 'recommendation'
     insight_text TEXT NOT NULL,
     confidence_score DECIMAL(3,2), -- 0.00 to 1.00
     comparison_period VARCHAR(50), -- 'week', 'month', 'quarter', 'year'
-    photo_ids INTEGER[], -- Array of photo IDs used in comparison
+    photo_ids UUID[], -- Array of photo IDs used in comparison
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -33,11 +33,11 @@ CREATE INDEX IF NOT EXISTS idx_insights_user_muscle ON muscle_progress_insights(
 
 -- Create photo_comparisons table for tracking side-by-side analyses
 CREATE TABLE IF NOT EXISTS photo_comparisons (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     muscle_group VARCHAR(50) NOT NULL,
-    photo_id_old INTEGER NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
-    photo_id_new INTEGER NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
+    photo_id_old UUID NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
+    photo_id_new UUID NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
     comparison_analysis JSONB NOT NULL,
     growth_percentage DECIMAL(5,2),
     symmetry_score DECIMAL(3,2),

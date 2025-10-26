@@ -22,14 +22,14 @@ ON photos(user_id, created_at DESC);
 
 -- Step 3: Create muscle_progress_insights table
 CREATE TABLE IF NOT EXISTS muscle_progress_insights (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     muscle_group VARCHAR(50) NOT NULL,
     insight_type VARCHAR(50) NOT NULL,
     insight_text TEXT NOT NULL,
     confidence_score DECIMAL(3,2),
     comparison_period VARCHAR(50),
-    photo_ids INTEGER[],
+    photo_ids UUID[],
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -39,11 +39,11 @@ ON muscle_progress_insights(user_id, muscle_group, created_at DESC);
 
 -- Step 4: Create photo_comparisons table
 CREATE TABLE IF NOT EXISTS photo_comparisons (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     muscle_group VARCHAR(50) NOT NULL,
-    photo_id_old INTEGER NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
-    photo_id_new INTEGER NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
+    photo_id_old UUID NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
+    photo_id_new UUID NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
     comparison_analysis JSONB NOT NULL,
     growth_percentage DECIMAL(5,2),
     symmetry_score DECIMAL(3,2),
