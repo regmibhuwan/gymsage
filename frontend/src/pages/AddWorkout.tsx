@@ -23,6 +23,8 @@ interface Exercise {
     set: number;
     reps: number;
     weight_kg: number;
+    weight_lbs?: number;
+    weight_unit?: string;
   }>;
 }
 
@@ -44,7 +46,10 @@ const AddWorkout: React.FC = () => {
   const [sessionContext, setSessionContext] = useState({
     lastExercise: '',
     lastSetNumber: 0,
-    isVoiceContinuation: false
+    isVoiceContinuation: false,
+    isEditing: false,
+    editingSetIndex: -1,
+    editingExerciseIndex: -1
   });
 
   // Summary modal state
@@ -156,11 +161,12 @@ const AddWorkout: React.FC = () => {
           const incrementalData = incrementalResponse.data.data;
           
           // Update session context
-          setSessionContext({
+          setSessionContext(prev => ({
+            ...prev,
             lastExercise: incrementalData.exercise,
             lastSetNumber: incrementalData.setNumber,
             isVoiceContinuation: false
-          });
+          }));
 
           // Handle the parsed data based on whether it's a new exercise or continuation
           if (incrementalData.isNewExercise) {
@@ -174,22 +180,57 @@ const AddWorkout: React.FC = () => {
               exerciseName: incrementalData.exercise
             });
           } else {
-            // Add sets to existing exercise
-            setExercises(prev => {
-              const updatedExercises = [...prev];
-              const lastExerciseIndex = updatedExercises.length - 1;
+            // Check if we're editing a set
+            if (sessionContext.isEditing && sessionContext.editingSetIndex >= 0) {
+              // Update existing set with new voice data
+              setExercises(prev => prev.map((exercise, exIndex) => {
+                if (exIndex === exercises.findIndex(e => e.exercise === incrementalData.exercise)) {
+                  return {
+                    ...exercise,
+                    sets: exercise.sets.map((set, sIndex) => {
+                      if (sIndex === sessionContext.editingSetIndex) {
+                        // Update this specific set
+                        return {
+                          ...set,
+                          reps: incrementalData.sets[0]?.reps || set.reps,
+                          weight_kg: incrementalData.sets[0]?.weight_kg || set.weight_kg,
+                          weight_lbs: incrementalData.sets[0]?.weight_lbs || set.weight_lbs,
+                          weight_unit: incrementalData.sets[0]?.weight_unit || set.weight_unit
+                        };
+                      }
+                      return set;
+                    })
+                  };
+                }
+                return exercise;
+              }));
               
-              if (lastExerciseIndex >= 0 && 
-                  updatedExercises[lastExerciseIndex].exercise === incrementalData.exercise) {
-                // Add all sets from the incremental data
-                updatedExercises[lastExerciseIndex].sets.push(...incrementalData.sets);
-                return updatedExercises;
-              } else {
-                // Fallback: add as new exercise
-                return [...prev, incrementalData];
-              }
-            });
-            toast.success(`✅ Added ${incrementalData.sets.length} sets to ${incrementalData.exercise}!`);
+              toast.success(`✅ Updated Set ${sessionContext.editingSetIndex + 1}!`);
+              
+              // Reset editing context
+              setSessionContext(prev => ({
+                ...prev,
+                isEditing: false,
+                editingSetIndex: -1
+              }));
+            } else {
+              // Add sets to existing exercise
+              setExercises(prev => {
+                const updatedExercises = [...prev];
+                const lastExerciseIndex = updatedExercises.length - 1;
+                
+                if (lastExerciseIndex >= 0 && 
+                    updatedExercises[lastExerciseIndex].exercise === incrementalData.exercise) {
+                  // Add all sets from the incremental data
+                  updatedExercises[lastExerciseIndex].sets.push(...incrementalData.sets);
+                  return updatedExercises;
+                } else {
+                  // Fallback: add as new exercise
+                  return [...prev, incrementalData];
+                }
+              });
+              toast.success(`✅ Added ${incrementalData.sets.length} sets to ${incrementalData.exercise}!`);
+            }
           }
         } else {
           // Fallback to original parsing
@@ -252,7 +293,10 @@ const AddWorkout: React.FC = () => {
         setSessionContext({
           lastExercise: '',
           lastSetNumber: 0,
-          isVoiceContinuation: false
+          isVoiceContinuation: false,
+          isEditing: false,
+          editingSetIndex: -1,
+          editingExerciseIndex: -1
         });
       } else if (index === prev.length - 1) {
         // If we removed the last exercise, update context to the new last exercise
@@ -260,7 +304,10 @@ const AddWorkout: React.FC = () => {
         setSessionContext({
           lastExercise: lastExercise.exercise,
           lastSetNumber: lastExercise.sets.length,
-          isVoiceContinuation: false
+          isVoiceContinuation: false,
+          isEditing: false,
+          editingSetIndex: -1,
+          editingExerciseIndex: -1
         });
       }
       
@@ -340,7 +387,10 @@ const AddWorkout: React.FC = () => {
     setSessionContext({
       lastExercise: exercise.exercise,
       lastSetNumber: exercise.sets.length,
-      isVoiceContinuation: true // Special flag for voice-added sets
+      isVoiceContinuation: true, // Special flag for voice-added sets
+      isEditing: false,
+      editingSetIndex: -1,
+      editingExerciseIndex: -1
     });
 
     // Start recording
@@ -363,6 +413,32 @@ const AddWorkout: React.FC = () => {
       }
       return exercise;
     }));
+  };
+
+  const editSetWithVoice = async (exerciseIndex: number, setIndex: number) => {
+    const exercise = exercises[exerciseIndex];
+    const set = exercise.sets[setIndex];
+    
+    setCurrentExercise(exercise.exercise);
+    setCurrentSets(1);
+    setCurrentReps(set.reps);
+    setCurrentWeight(set.weight_kg);
+
+    toast(`Editing Set ${set.set} of ${exercise.exercise}. Say the new reps and weight.`, { icon: '📝' });
+
+    if (!isRecording) {
+      await startRecording();
+      
+      // Set editing context for the backend
+      setSessionContext({
+        lastExercise: exercise.exercise,
+        lastSetNumber: set.set,
+        isVoiceContinuation: false,
+        isEditing: true,
+        editingSetIndex: setIndex,
+        editingExerciseIndex: exerciseIndex
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -790,6 +866,15 @@ const AddWorkout: React.FC = () => {
                           placeholder="Weight"
                         />
                         <span className="text-sm text-gray-600">kg</span>
+                        
+                        <button
+                          type="button"
+                          onClick={() => editSetWithVoice(exerciseIndex, setIndex)}
+                          className="text-blue-600 hover:text-blue-700"
+                          title="Edit this set with voice"
+                        >
+                          <Mic className="h-4 w-4" />
+                        </button>
                         
                         {exercise.sets.length > 1 && (
                           <button
