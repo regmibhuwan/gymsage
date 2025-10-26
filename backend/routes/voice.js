@@ -394,15 +394,52 @@ function parseWithRegex(transcript) {
  * Also handles comma-separated reps like "pushups 4 sets and 2, 3, 4, 5 reps"
  */
 function parseIndividualSets(text) {
-  // Pattern 1: Explicit set descriptions like "first set 10 reps 100 pounds"
-  const explicitSetsPattern = /(?:first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th|set\s+\d+)\s+(?:set\s+)?(\d+)\s+reps?\s+(\d+(?:\.\d+)?)\s*(kg|kilograms?|kilos?|lbs?|pounds?|lb)/gi;
+  // Pattern 1: Explicit set descriptions like "first set 10 reps 100 pounds" or "set 1, 10 reps, 100 pounds"
+  // IMPORTANT: This pattern should match the NUMBER of the set, NOT just "set"
+  const explicitSetsPattern = /(?:first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)\s+(?:set\s+)?(\d+)\s+reps?\s+(\d+(?:\.\d+)?)\s*(kg|kilograms?|kilos?|lbs?|pounds?|lb)/gi;
+  
+  // Pattern 1b: "set 1, 10 reps, 100 pounds" format (with comma)
+  const commaSetPattern = /set\s+(\d+)\s*,\s*(\d+)\s+reps?\s*,\s*(\d+(?:\.\d+)?)\s*(kg|kilograms?|kilos?|lbs?|pounds?|lb)/gi;
   
   // Pattern 2: Comma-separated reps like "2, 3, 4, 5 reps"
   const commaRepsPattern = /(\d+(?:\s*,\s*\d+)*)\s+reps?/i;
   
   const sets = [];
   
-  // Try explicit sets first
+  console.log('🔍 Parsing individual sets in text:', text);
+  
+  // Try comma format first: "set 1, 10 reps, 100 pounds"
+  let commaMatch;
+  while ((commaMatch = commaSetPattern.exec(text)) !== null) {
+    const setNumber = parseInt(commaMatch[1]);
+    const reps = parseInt(commaMatch[2]);
+    const weight = parseFloat(commaMatch[3]);
+    const unit = commaMatch[4].toLowerCase();
+    
+    console.log(`📊 Found set ${setNumber}: ${reps} reps, ${weight} ${unit}`);
+    
+    let weightKg, weightLbs, weightUnit;
+    
+    if (unit.includes('lb') || unit.includes('pound')) {
+      weightLbs = weight;
+      weightKg = weight * 0.453592;
+      weightUnit = 'lbs';
+    } else {
+      weightKg = weight;
+      weightLbs = weight * 2.20462;
+      weightUnit = 'kg';
+    }
+    
+    sets.push({
+      set: setNumber,
+      reps: reps,
+      weight_kg: smartRoundWeight(weightKg),
+      weight_lbs: Math.round(weightLbs * 2) / 2,
+      weight_unit: weightUnit
+    });
+  }
+  
+  // Try explicit sets if no comma format found
   let match;
   while ((match = explicitSetsPattern.exec(text)) !== null) {
     const reps = parseInt(match[1]);
