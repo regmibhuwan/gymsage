@@ -11,7 +11,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import AddWorkout from './pages/AddWorkout';
 import WorkoutDetail from './pages/WorkoutDetail';
-import Photos from './pages/Photos';
+import ProgressPhotos from './pages/ProgressPhotos';
 import Coach from './pages/Coach';
 
 // Protected Route component
@@ -111,7 +111,7 @@ function App() {
             <Route path="/photos" element={
               <ProtectedRoute>
                 <Layout>
-                  <Photos />
+                  <ProgressPhotos />
                 </Layout>
               </ProtectedRoute>
             } />
