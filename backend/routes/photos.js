@@ -158,7 +158,7 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 /**
- * Trigger photo analysis via Python service
+ * Trigger photo analysis using OpenAI Vision API
  * POST /api/photos/:id/analyze
  */
 router.post('/:id/analyze', authenticateToken, async (req, res) => {
@@ -177,28 +177,70 @@ router.post('/:id/analyze', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Photo not found' });
     }
 
-    // Call Python analyzer service
-    const analyzerUrl = process.env.ANALYZER_URL || 'http://localhost:8001';
-    
+    // Use OpenAI Vision API for analysis
+    if (!process.env.OPENAI_API_KEY) {
+      return res.status(500).json({ 
+        error: 'OpenAI API key not configured' 
+      });
+    }
+
     try {
       const axios = require('axios');
-      const analysisResponse = await axios.post(`${analyzerUrl}/analyze-photo`, {
-        photo_id: photo.id,
-        view: photo.view,
-        image_url: photo.url
-      }, { timeout: 30000 });
+      const openai = axios.create({
+        baseURL: 'https://api.openai.com/v1',
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-      if (!analysisResponse.data.success) {
-        return res.status(500).json({ 
-          error: analysisResponse.data.error || 'Analysis failed' 
-        });
-      }
+      // Analyze the photo using OpenAI Vision
+      const analysisPrompt = `Analyze this ${photo.view} view progress photo of a person working out. Provide insights about:
+1. Overall physique assessment (body composition, muscle definition)
+2. Visible muscle groups showing development
+3. Body symmetry and posture observations
+4. Areas showing improvement or areas needing focus
+5. Recommendations for continued progress
+
+Be encouraging, specific, and actionable. Format the response as a structured analysis.`;
+
+      const visionResponse = await openai.post('/chat/completions', {
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: analysisPrompt
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: photo.url
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 500
+      });
+
+      const analysisText = visionResponse.data.choices[0].message.content;
+      
+      // Parse the analysis into structured format
+      const analysis = {
+        timestamp: new Date().toISOString(),
+        view: photo.view,
+        analysis: analysisText,
+        summary: extractSummary(analysisText)
+      };
 
       // Update photo with analysis data
       const { data: updatedPhoto, error: updateError } = await supabase
         .from('photos')
         .update({
-          analysis_data: analysisResponse.data.analysis,
+          analysis_data: analysis,
           updated_at: new Date().toISOString()
         })
         .eq('id', id)
@@ -213,12 +255,12 @@ router.post('/:id/analyze', authenticateToken, async (req, res) => {
 
       res.json({ 
         photo: updatedPhoto,
-        analysis: analysisResponse.data.analysis
+        analysis: analysis
       });
-    } catch (analyzerError) {
-      console.error('Analyzer service error:', analyzerError);
+    } catch (openaiError) {
+      console.error('OpenAI Vision API error:', openaiError.response?.data || openaiError.message);
       return res.status(500).json({ 
-        error: 'Failed to connect to analysis service. Please ensure the analyzer is running.' 
+        error: 'Failed to analyze photo with AI. Please try again.' 
       });
     }
   } catch (error) {
@@ -226,6 +268,33 @@ router.post('/:id/analyze', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+// Helper function to extract a short summary from the analysis
+function extractSummary(analysisText) {
+  // Extract key points from the analysis
+  const lines = analysisText.split('\n').filter(line => line.trim());
+  
+  // Find assessment, recommendations, etc.
+  const summary = {
+    keyPoints: [],
+    overallAssessment: '',
+    recommendations: []
+  };
+
+  lines.forEach(line => {
+    if (line.toLowerCase().includes('overall') || line.toLowerCase().includes('assessment')) {
+      summary.overallAssessment = line.replace(/^#*\s*\w+:\s*/i, '').trim();
+    }
+    if (line.toLowerCase().includes('recommendation') || line.toLowerCase().includes('focus')) {
+      summary.recommendations.push(line.replace(/^-*\s*/, '').trim());
+    }
+    if (line.startsWith('-') || line.startsWith('•') || line.match(/^\d+\./)) {
+      summary.keyPoints.push(line.replace(/^[-•\d.\s]+/, '').trim());
+    }
+  });
+
+  return summary;
+}
 
 /**
  * Update photo analysis data
