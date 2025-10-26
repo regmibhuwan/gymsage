@@ -367,16 +367,30 @@ const Photos: React.FC = () => {
                       {/* Show summary if available */}
                       {selectedPhoto.analysis_data.summary && (
                         <>
+                          {selectedPhoto.analysis_data.summary.muscleDevelopment && (
+                            <div className="p-4 bg-purple-50 rounded-lg border-l-4 border-purple-600">
+                              <p className="font-semibold text-gray-700 mb-2">💪 Muscle Development</p>
+                              <p className="text-gray-900">{selectedPhoto.analysis_data.summary.muscleDevelopment}</p>
+                            </div>
+                          )}
+
                           {selectedPhoto.analysis_data.summary.overallAssessment && (
-                            <div className="p-4 bg-green-50 rounded-lg">
-                              <p className="font-semibold text-gray-700 mb-2">Overall Assessment</p>
+                            <div className="p-4 bg-green-50 rounded-lg border-l-4 border-green-600">
+                              <p className="font-semibold text-gray-700 mb-2">📊 Body Composition</p>
                               <p className="text-gray-900">{selectedPhoto.analysis_data.summary.overallAssessment}</p>
                             </div>
                           )}
 
+                          {selectedPhoto.analysis_data.summary.postureNotes && (
+                            <div className="p-4 bg-blue-50 rounded-lg border-l-4 border-blue-600">
+                              <p className="font-semibold text-gray-700 mb-2">🧘 Posture & Form</p>
+                              <p className="text-gray-900">{selectedPhoto.analysis_data.summary.postureNotes}</p>
+                            </div>
+                          )}
+
                           {selectedPhoto.analysis_data.summary.keyPoints && selectedPhoto.analysis_data.summary.keyPoints.length > 0 && (
-                            <div className="p-4 bg-purple-50 rounded-lg">
-                              <p className="font-semibold text-gray-700 mb-2">Key Observations</p>
+                            <div className="p-4 bg-indigo-50 rounded-lg">
+                              <p className="font-semibold text-gray-700 mb-2">🎯 Key Observations</p>
                               <ul className="list-disc list-inside space-y-1">
                                 {selectedPhoto.analysis_data.summary.keyPoints.map((point: string, idx: number) => (
                                   <li key={idx} className="text-gray-900">{point}</li>
@@ -386,8 +400,8 @@ const Photos: React.FC = () => {
                           )}
 
                           {selectedPhoto.analysis_data.summary.recommendations && selectedPhoto.analysis_data.summary.recommendations.length > 0 && (
-                            <div className="p-4 bg-yellow-50 rounded-lg">
-                              <p className="font-semibold text-gray-700 mb-2">Recommendations</p>
+                            <div className="p-4 bg-yellow-50 rounded-lg border-l-4 border-yellow-600">
+                              <p className="font-semibold text-gray-700 mb-2">🏋️ Training Recommendations</p>
                               <ul className="list-disc list-inside space-y-1">
                                 {selectedPhoto.analysis_data.summary.recommendations.map((rec: string, idx: number) => (
                                   <li key={idx} className="text-gray-900">{rec}</li>

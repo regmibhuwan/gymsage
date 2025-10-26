@@ -195,18 +195,29 @@ router.post('/:id/analyze', authenticateToken, async (req, res) => {
       });
 
       // Analyze the photo using OpenAI Vision
-      const analysisPrompt = `Analyze this ${photo.view} view progress photo of a person working out. Provide insights about:
-1. Overall physique assessment (body composition, muscle definition)
-2. Visible muscle groups showing development
-3. Body symmetry and posture observations
-4. Areas showing improvement or areas needing focus
-5. Recommendations for continued progress
+      const analysisPrompt = `You are a fitness coach analyzing a ${photo.view} view progress photo for workout tracking purposes. Focus on observable fitness and form elements without identifying the individual.
 
-Be encouraging, specific, and actionable. Format the response as a structured analysis.`;
+Please provide:
+
+1. **Muscle Development Observations**: Describe visible muscle groups and their development state (e.g., "well-defined back muscles", "developing shoulder definition")
+
+2. **Body Composition Notes**: Comment on overall muscle mass and definition visible in this ${photo.view} view
+
+3. **Posture & Form Analysis**: Note any posture observations relevant to workout effectiveness
+
+4. **Training Recommendations**: Based on what's visible, suggest 3-4 specific exercises or training focuses to continue progress in the visible muscle groups
+
+5. **Progress Tracking Tips**: What specific areas should be monitored in future ${photo.view} view photos to track improvement
+
+Keep the tone motivating and educational. Focus on actionable fitness insights.`;
 
       const visionResponse = await openai.post('/chat/completions', {
         model: 'gpt-4o',
         messages: [
+          {
+            role: 'system',
+            content: 'You are an expert fitness coach who provides detailed, actionable analysis of workout progress photos. You focus on observable physical development, form, and provide specific training recommendations without identifying individuals.'
+          },
           {
             role: 'user',
             content: [
@@ -217,13 +228,14 @@ Be encouraging, specific, and actionable. Format the response as a structured an
               {
                 type: 'image_url',
                 image_url: {
-                  url: photo.url
+                  url: photo.url,
+                  detail: 'high'
                 }
               }
             ]
           }
         ],
-        max_tokens: 500
+        max_tokens: 800
       });
 
       const analysisText = visionResponse.data.choices[0].message.content;
@@ -274,24 +286,61 @@ function extractSummary(analysisText) {
   // Extract key points from the analysis
   const lines = analysisText.split('\n').filter(line => line.trim());
   
-  // Find assessment, recommendations, etc.
   const summary = {
     keyPoints: [],
     overallAssessment: '',
-    recommendations: []
+    recommendations: [],
+    muscleDevelopment: '',
+    postureNotes: ''
   };
 
+  let currentSection = '';
+  
   lines.forEach(line => {
-    if (line.toLowerCase().includes('overall') || line.toLowerCase().includes('assessment')) {
-      summary.overallAssessment = line.replace(/^#*\s*\w+:\s*/i, '').trim();
+    const trimmedLine = line.trim();
+    
+    // Detect section headers
+    if (trimmedLine.match(/^\*?\*?Muscle Development/i)) {
+      currentSection = 'muscle';
+    } else if (trimmedLine.match(/^\*?\*?Body Composition/i)) {
+      currentSection = 'composition';
+    } else if (trimmedLine.match(/^\*?\*?Posture|Form Analysis/i)) {
+      currentSection = 'posture';
+    } else if (trimmedLine.match(/^\*?\*?Training Recommendation/i)) {
+      currentSection = 'recommendations';
+    } else if (trimmedLine.match(/^\*?\*?Progress Tracking/i)) {
+      currentSection = 'tracking';
     }
-    if (line.toLowerCase().includes('recommendation') || line.toLowerCase().includes('focus')) {
-      summary.recommendations.push(line.replace(/^-*\s*/, '').trim());
-    }
-    if (line.startsWith('-') || line.startsWith('•') || line.match(/^\d+\./)) {
-      summary.keyPoints.push(line.replace(/^[-•\d.\s]+/, '').trim());
+    
+    // Extract content based on section
+    if (trimmedLine.startsWith('-') || trimmedLine.startsWith('•') || trimmedLine.match(/^\d+\./)) {
+      const content = trimmedLine.replace(/^[-•\d.\s*]+/, '').trim();
+      if (content && content.length > 5) {
+        if (currentSection === 'recommendations') {
+          summary.recommendations.push(content);
+        } else {
+          summary.keyPoints.push(content);
+        }
+      }
+    } else if (trimmedLine.length > 20 && !trimmedLine.match(/^\*?\*?[A-Z]/)) {
+      // Regular paragraph text
+      if (currentSection === 'muscle' && !summary.muscleDevelopment) {
+        summary.muscleDevelopment = trimmedLine;
+      } else if (currentSection === 'composition' && !summary.overallAssessment) {
+        summary.overallAssessment = trimmedLine;
+      } else if (currentSection === 'posture' && !summary.postureNotes) {
+        summary.postureNotes = trimmedLine;
+      }
     }
   });
+
+  // If we didn't get an overall assessment, use the first substantial line
+  if (!summary.overallAssessment && lines.length > 0) {
+    const firstContent = lines.find(l => l.trim().length > 30 && !l.match(/^\*?\*?[A-Z]/));
+    if (firstContent) {
+      summary.overallAssessment = firstContent.trim();
+    }
+  }
 
   return summary;
 }
