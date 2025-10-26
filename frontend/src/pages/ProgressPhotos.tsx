@@ -127,7 +127,8 @@ const ProgressPhotos: React.FC = () => {
       fetchPhotos();
     } catch (error: any) {
       console.error('Error uploading photo:', error);
-      toast.error('Failed to upload photo');
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to upload photo';
+      toast.error(errorMessage);
     } finally {
       setUploading(false);
     }

@@ -108,7 +108,10 @@ router.post('/upload', authenticateToken, upload.single('photo'), async (req, re
 
     if (uploadError) {
       console.error('Supabase upload error:', uploadError);
-      return res.status(500).json({ error: 'Failed to upload photo to storage' });
+      return res.status(500).json({ 
+        error: 'Failed to upload photo to storage', 
+        details: uploadError.message || uploadError 
+      });
     }
 
     // Get public URL
@@ -148,7 +151,10 @@ router.post('/upload', authenticateToken, upload.single('photo'), async (req, re
 
     if (dbError) {
       console.error('Database error:', dbError);
-      return res.status(500).json({ error: 'Failed to save photo record' });
+      return res.status(500).json({ 
+        error: 'Failed to save photo record', 
+        details: dbError.message || dbError 
+      });
     }
 
     // Auto-trigger analysis
@@ -165,7 +171,11 @@ router.post('/upload', authenticateToken, upload.single('photo'), async (req, re
     });
   } catch (error) {
     console.error('Photo upload error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
