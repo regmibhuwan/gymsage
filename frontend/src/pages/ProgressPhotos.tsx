@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Camera, Upload, X, Loader2, CheckCircle2, Sparkles, TrendingUp, 
-  TrendingDown, Minus, ChevronRight, Calendar, Target, Zap 
+  TrendingDown, Minus, ChevronRight, Calendar, Target, Zap, Trash2, MessageCircle, Send 
 } from 'lucide-react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
@@ -63,6 +63,12 @@ const ProgressPhotos: React.FC = () => {
   const [uploadNotes, setUploadNotes] = useState('');
   const [uploadWeight, setUploadWeight] = useState('');
   const [uploadBodyFat, setUploadBodyFat] = useState('');
+  
+  // AI Chat
+  const [showAIChat, setShowAIChat] = useState(false);
+  const [chatMessage, setChatMessage] = useState('');
+  const [chatHistory, setChatHistory] = useState<Array<{role: string; content: string}>>([]);
+  const [chatLoading, setChatLoading] = useState(false);
 
   useEffect(() => {
     fetchPhotos();
@@ -138,6 +144,56 @@ const ProgressPhotos: React.FC = () => {
     }
   };
 
+  const deletePhoto = async (photoId: number) => {
+    // eslint-disable-next-line no-restricted-globals
+    if (!confirm('Are you sure you want to delete this photo? This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await api.delete(`/photos/enhanced/${photoId}`);
+      toast.success('Photo deleted successfully');
+      setSelectedPhoto(null);
+      fetchPhotos();
+    } catch (error: any) {
+      console.error('Error deleting photo:', error);
+      toast.error('Failed to delete photo');
+    }
+  };
+
+  const sendChatMessage = async () => {
+    if (!chatMessage.trim()) return;
+
+    const userMessage = chatMessage.trim();
+    setChatMessage('');
+    setChatHistory(prev => [...prev, { role: 'user', content: userMessage }]);
+    setChatLoading(true);
+
+    try {
+      const response = await api.post('/coach/chat', { message: userMessage });
+      
+      let aiResponse = '';
+      if (response.data.response) {
+        aiResponse = response.data.response;
+      } else if (typeof response.data === 'string') {
+        aiResponse = response.data;
+      } else {
+        aiResponse = JSON.stringify(response.data);
+      }
+
+      setChatHistory(prev => [...prev, { role: 'assistant', content: aiResponse }]);
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+      toast.error('Failed to get AI response');
+      setChatHistory(prev => [...prev, { 
+        role: 'assistant', 
+        content: 'Sorry, I encountered an error. Please try again.' 
+      }]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
   const getTrendIcon = (trend: string) => {
     if (trend === 'improving') return <TrendingUp className="h-5 w-5 text-green-600" />;
     if (trend === 'declining') return <TrendingDown className="h-5 w-5 text-red-600" />;
@@ -165,13 +221,22 @@ const ProgressPhotos: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">Visual Progress Tracker</h1>
           <p className="text-gray-600">Track muscle-specific progress with AI-powered analysis</p>
         </div>
-        <button
-          onClick={() => setUploadModalOpen(true)}
-          className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
-        >
-          <Upload className="h-5 w-5" />
-          <span>Upload Photo</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={() => setShowAIChat(!showAIChat)}
+            className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+          >
+            <MessageCircle className="h-5 w-5" />
+            <span>Ask AI</span>
+          </button>
+          <button
+            onClick={() => setUploadModalOpen(true)}
+            className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+          >
+            <Upload className="h-5 w-5" />
+            <span>Upload Photo</span>
+          </button>
+        </div>
       </div>
 
       {/* Stats Overview */}
@@ -225,6 +290,90 @@ const ProgressPhotos: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* AI Chat Panel */}
+      {showAIChat && (
+        <div className="card bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <MessageCircle className="h-6 w-6 text-purple-600" />
+              <h3 className="text-lg font-bold text-gray-900">Ask AI About Your Progress</h3>
+            </div>
+            <button onClick={() => setShowAIChat(false)} className="text-gray-400 hover:text-gray-600">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {/* Suggested Questions */}
+            {chatHistory.length === 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {[
+                  "Is my chest growing?",
+                  "Which muscle has improved the most?",
+                  "Am I cutting or bulking?",
+                  "What should I focus on next?"
+                ].map((question) => (
+                  <button
+                    key={question}
+                    onClick={() => {
+                      setChatMessage(question);
+                      setTimeout(() => sendChatMessage(), 100);
+                    }}
+                    className="text-left p-3 bg-white rounded-lg hover:bg-purple-50 text-sm text-gray-700 hover:text-purple-700 transition-colors border border-gray-200"
+                  >
+                    {question}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Chat History */}
+            {chatHistory.length > 0 && (
+              <div className="bg-white rounded-lg p-4 max-h-96 overflow-y-auto space-y-3">
+                {chatHistory.map((msg, idx) => (
+                  <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] p-3 rounded-lg ${
+                      msg.role === 'user' 
+                        ? 'bg-purple-600 text-white' 
+                        : 'bg-gray-100 text-gray-900'
+                    }`}>
+                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                    </div>
+                  </div>
+                ))}
+                {chatLoading && (
+                  <div className="flex justify-start">
+                    <div className="bg-gray-100 p-3 rounded-lg">
+                      <Loader2 className="h-5 w-5 animate-spin text-gray-600" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Input */}
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                value={chatMessage}
+                onChange={(e) => setChatMessage(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
+                placeholder="Ask about your progress photos..."
+                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                disabled={chatLoading}
+              />
+              <button
+                onClick={sendChatMessage}
+                disabled={chatLoading || !chatMessage.trim()}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+              >
+                <Send className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* View Mode Toggle */}
       <div className="flex space-x-2 bg-gray-100 p-1 rounded-lg w-fit">
@@ -538,9 +687,18 @@ const ProgressPhotos: React.FC = () => {
                   <h2 className="text-2xl font-bold text-gray-900 capitalize">{selectedPhoto.muscle_group}</h2>
                   <p className="text-gray-600">{formatDate(selectedPhoto.created_at)}</p>
                 </div>
-                <button onClick={() => setSelectedPhoto(null)} className="text-gray-400 hover:text-gray-600">
-                  <X className="h-6 w-6" />
-                </button>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => deletePhoto(selectedPhoto.id)}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                    title="Delete photo"
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </button>
+                  <button onClick={() => setSelectedPhoto(null)} className="text-gray-400 hover:text-gray-600">
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
               </div>
 
               <div className="grid md:grid-cols-2 gap-6">
