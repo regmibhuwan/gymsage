@@ -477,10 +477,34 @@ const AddWorkout: React.FC = () => {
         try {
           const workoutsResponse = await api.get('/workouts');
           const allWorkouts = workoutsResponse.data.workouts || [];
+          
+          console.log('📅 Today\'s date:', today);
+          console.log('📊 All workouts from API:', allWorkouts);
+          
           const todayWorkouts = allWorkouts.filter((workout: any) => workout.date === today);
           
+          console.log('🎯 Today\'s workouts:', todayWorkouts);
+          
           if (todayWorkouts.length === 0) {
-            toast.error('No workout found for today');
+            console.warn('⚠️ No workout found for today, but showing empty summary anyway');
+            toast('No workout logged for today yet', { icon: 'ℹ️' });
+            
+            // Show empty summary instead of error
+            setSummaryModal({
+              isOpen: true,
+              content: `No workouts logged for ${today} yet. Start logging your workout to see your daily summary!`,
+              tableData: [],
+              stats: {
+                totalExercises: 0,
+                totalSets: 0,
+                date: new Date(today).toLocaleDateString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric', 
+                  year: 'numeric' 
+                })
+              },
+              type: 'daily'
+            });
             return;
           }
 

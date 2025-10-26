@@ -191,16 +191,26 @@ const Dashboard: React.FC = () => {
       } else if (type === 'weekly') {
         // Get workouts from the current week
         const now = new Date();
-        const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
+        const weekStart = new Date(now);
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week (Sunday)
+        weekStart.setHours(0, 0, 0, 0); // Reset to start of day
+        
         const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekEnd.getDate() + 6);
+        weekEnd.setDate(weekEnd.getDate() + 6); // End of week (Saturday)
+        weekEnd.setHours(23, 59, 59, 999); // End of day
+        
+        console.log('📅 Weekly range:', weekStart.toISOString(), 'to', weekEnd.toISOString());
+        console.log('📊 All workouts:', workouts);
         
         const weekWorkouts = workouts.filter(workout => {
           const workoutDate = new Date(workout.date);
           return workoutDate >= weekStart && workoutDate <= weekEnd;
         });
         
+        console.log('🎯 Week workouts:', weekWorkouts);
+        
         if (weekWorkouts.length === 0) {
+          console.error('❌ No workouts found for this week');
           toast.error('No workouts found for this week');
           return;
         }
