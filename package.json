@@ -7,7 +7,8 @@
     "start:backend": "cd backend && npm run dev",
     "start:analyzer": "cd analyzer && uvicorn main:app --reload --port 8001",
     "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install && cd ../analyzer && pip install -r requirements.txt",
-    "test": "cd backend && npm test && cd ../analyzer && python -m pytest"
+    "test": "cd backend && npm test && cd ../analyzer && python -m pytest",
+    "vercel-build": "cd frontend && npm install && npm run build"
   },
   "keywords": ["fitness", "ai", "voice", "tracking", "gym"],
   "author": "GymSage Team",
