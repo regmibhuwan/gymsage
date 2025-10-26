@@ -80,6 +80,10 @@ router.get('/', authenticateToken, async (req, res) => {
  */
 router.post('/upload', authenticateToken, upload.single('photo'), async (req, res) => {
   try {
+    console.log('📸 Enhanced photo upload request received');
+    console.log('Body:', req.body);
+    console.log('File:', req.file ? `${req.file.originalname} (${req.file.size} bytes)` : 'No file');
+    
     const { muscle_group, notes, weight_lbs, body_fat_percentage, measurements } = req.body;
     const file = req.file;
 
