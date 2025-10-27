@@ -22,6 +22,32 @@ router.post('/chat', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
+    // Check if user is asking for specific date comparisons
+    let specificPhotos = null;
+    const dateComparisonMatch = message.match(/(compare|comparison|progress|change|growth).*?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2}).*?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})/i);
+    
+    if (dateComparisonMatch) {
+      // Extract muscle group from question
+      const muscleMatch = message.match(/(chest|back|shoulders?|biceps?|triceps?|forearms?|abs|obliques?|quads?|hamstrings?|calves?|glutes?|legs?|arms?)/i);
+      const muscleGroup = muscleMatch ? muscleMatch[1].toLowerCase() : null;
+      
+      // Get ALL photos for this muscle group with dates
+      const { data: allPhotos } = await supabase
+        .from('photos')
+        .select('id, muscle_group, created_at, analysis_data, comparison_data, progress_score, url')
+        .eq('user_id', req.user.id)
+        .order('created_at', { ascending: true });
+      
+      specificPhotos = {
+        allPhotos: allPhotos || [],
+        muscleGroup: muscleGroup,
+        requestedDates: {
+          date1: `${dateComparisonMatch[2]} ${dateComparisonMatch[3]}`,
+          date2: `${dateComparisonMatch[4]} ${dateComparisonMatch[5]}`
+        }
+      };
+    }
+
     // Get user's recent workouts and photo analyses for context
     const { data: workouts } = await supabase
       .from('workouts')
@@ -88,6 +114,25 @@ router.post('/chat', authenticateToken, async (req, res) => {
       });
     }
 
+    let additionalContext = '';
+    if (specificPhotos) {
+      additionalContext = `
+
+IMPORTANT - Date-Specific Comparison Request:
+User is asking to compare photos from specific dates: ${specificPhotos.requestedDates.date1} and ${specificPhotos.requestedDates.date2}
+Muscle group requested: ${specificPhotos.muscleGroup || 'not specified'}
+
+Available photos with dates:
+${specificPhotos.allPhotos.map(p => `- ${new Date(p.created_at).toLocaleDateString()}: ${p.muscle_group} (Progress Score: ${p.progress_score || 'N/A'})`).join('\n')}
+
+CRITICAL RULES FOR DATE COMPARISONS:
+1. Check if photos exist for BOTH requested dates (within 2-3 days tolerance)
+2. Check if the muscle group matches what the user asked about
+3. If photos DON'T exist for either date, be HONEST and say: "I don't see any ${specificPhotos.muscleGroup} photos from [missing date(s)]. Please upload photos for those dates first."
+4. If photos exist, compare ONLY those specific photos
+5. Do NOT make up data or use photos from different dates`;
+    }
+
     const systemPrompt = `You are an AI fitness coach named GymSage. You help users with their fitness journey by providing personalized advice based on their workout data, progress photos, and muscle-specific analysis.
 
 User Context:
@@ -96,17 +141,19 @@ User Context:
 - Muscle Group Stats: ${JSON.stringify(muscleStats)}
 - Recent Progress Insights: ${JSON.stringify(context.user.progressInsights)}
 - Recent Comparisons: ${JSON.stringify(context.user.muscleComparisons)}
+${additionalContext}
 
 Guidelines:
-1. Answer questions about specific muscle groups using the progress insights and comparison data
-2. When asked "Is my [muscle] growing?", reference the growth_percentage and progress insights
-3. When asked "Which muscle improved most?", compare the progress scores and growth percentages
-4. When asked about cutting/bulking, analyze overall trends and body composition
-5. Suggest specific exercises based on muscle group weaknesses
-6. Provide actionable, specific advice
-7. Be encouraging and motivational
-8. Keep responses concise but informative
-9. Always respond in JSON format with this structure:
+1. BE HONEST - If photos don't exist for the dates requested, say so clearly
+2. Check dates carefully when user asks for specific date comparisons
+3. When asked "Is my [muscle] growing?", reference actual growth_percentage from data
+4. When asked "Which muscle improved most?", compare the actual progress scores
+5. When asked about cutting/bulking, analyze overall trends and body composition
+6. Suggest specific exercises based on muscle group weaknesses
+7. Provide actionable, specific advice
+8. Be encouraging and motivational
+9. Keep responses concise but informative
+10. Always respond in JSON format with this structure:
 {
   "response": "Your main response text",
   "suggestions": ["suggestion1", "suggestion2", "suggestion3"],
