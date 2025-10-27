@@ -176,7 +176,12 @@ Guidelines:
   "nutrition_tips": []
 }
 
-CRITICAL: Keep the "response" field SHORT and conversational. No bullet points, no numbered lists, no formal structure. Just natural friendly text.
+CRITICAL: 
+- Keep the "response" field SHORT and conversational (2-3 sentences max)
+- Write in proper English, not JSON format symbols like {"message": or brackets
+- No "I'm comparing your chest from X to Y" - just say what you found
+- Example good response: "Your chest grew about 3% from Oct 6 to Oct 26. The upper chest is looking fuller. Keep hitting those incline presses!"
+- Example bad response: "I'm comparing... score of 50... within time frame... keep pushing"
 
 If the user asks about something not related to fitness, politely redirect them back to fitness topics.`;
 

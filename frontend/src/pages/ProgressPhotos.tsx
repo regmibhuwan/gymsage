@@ -46,6 +46,35 @@ interface Insight {
   created_at: string;
 }
 
+// Format comparison text to be readable
+const formatComparisonText = (comparison: any) => {
+  if (!comparison) return '';
+  
+  let text = comparison.text || '';
+  
+  // If it's already formatted nicely from AI, just show it
+  if (comparison.text && typeof comparison.text === 'string') {
+    return text;
+  }
+  
+  // Otherwise, format the summary
+  if (comparison.summary) {
+    const parts = [];
+    if (comparison.summary.growth_percentage) {
+      parts.push(`Growth: ${comparison.summary.growth_percentage > 0 ? '+' : ''}${comparison.summary.growth_percentage}%`);
+    }
+    if (comparison.summary.definition_improvement) {
+      parts.push('Muscle definition improved');
+    }
+    if (comparison.summary.recommendations) {
+      parts.push(`\nRecommendations: ${comparison.summary.recommendations}`);
+    }
+    return parts.join('\n');
+  }
+  
+  return text;
+};
+
 const ProgressPhotos: React.FC = () => {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [photosByMuscle, setPhotosByMuscle] = useState<Record<string, Photo[]>>({});
@@ -743,8 +772,10 @@ const ProgressPhotos: React.FC = () => {
 
                   {selectedPhoto.comparison_data && (
                     <div className="p-4 bg-green-50 border-l-4 border-green-600 rounded-lg">
-                      <p className="text-sm font-semibold text-green-900 mb-2">Progress vs Previous Photo:</p>
-                      <p className="text-sm text-green-800">{selectedPhoto.comparison_data.text}</p>
+                      <p className="text-sm font-semibold text-green-900 mb-2">Progress vs Previous Photo</p>
+                      <div className="text-sm text-green-800 whitespace-pre-line">
+                        {formatComparisonText(selectedPhoto.comparison_data)}
+                      </div>
                       {selectedPhoto.comparison_data.summary?.growth_percentage && (
                         <p className="text-lg font-bold text-green-600 mt-2">
                           Growth: {selectedPhoto.comparison_data.summary.growth_percentage > 0 ? '+' : ''}
