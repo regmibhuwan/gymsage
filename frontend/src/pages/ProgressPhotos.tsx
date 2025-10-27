@@ -63,6 +63,7 @@ const ProgressPhotos: React.FC = () => {
   const [uploadNotes, setUploadNotes] = useState('');
   const [uploadWeight, setUploadWeight] = useState('');
   const [uploadBodyFat, setUploadBodyFat] = useState('');
+  const [uploadDate, setUploadDate] = useState(new Date().toISOString().split('T')[0]); // YYYY-MM-DD format
   
   // AI Chat
   const [showAIChat, setShowAIChat] = useState(false);
@@ -111,6 +112,7 @@ const ProgressPhotos: React.FC = () => {
       const formData = new FormData();
       formData.append('photo', file);
       formData.append('muscle_group', selectedMuscle);
+      formData.append('photo_date', uploadDate); // Send custom date
       if (uploadNotes) formData.append('notes', uploadNotes);
       if (uploadWeight) formData.append('weight_lbs', uploadWeight);
       if (uploadBodyFat) formData.append('body_fat_percentage', uploadBodyFat);
@@ -310,10 +312,10 @@ const ProgressPhotos: React.FC = () => {
             {chatHistory.length === 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {[
-                  "Is my chest growing?",
-                  "Which muscle has improved the most?",
-                  "Am I cutting or bulking?",
-                  "What should I focus on next?"
+                  "What percentage of change do you see in my chest from March to August?",
+                  "Is my upper chest growing more than my lower chest?",
+                  "Which muscle group has shown the most improvement?",
+                  "Compare my back progress from last month to now"
                 ].map((question) => (
                   <button
                     key={question}
@@ -611,6 +613,18 @@ const ProgressPhotos: React.FC = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Photo Date *</label>
+                <input
+                  type="date"
+                  value={uploadDate}
+                  onChange={(e) => setUploadDate(e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <p className="text-xs text-gray-500 mt-1">Select when this photo was actually taken</p>
               </div>
 
               <div>

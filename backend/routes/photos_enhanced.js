@@ -84,8 +84,11 @@ router.post('/upload', authenticateToken, upload.single('photo'), async (req, re
     console.log('Body:', req.body);
     console.log('File:', req.file ? `${req.file.originalname} (${req.file.size} bytes)` : 'No file');
     
-    const { muscle_group, notes, weight_lbs, body_fat_percentage, measurements } = req.body;
+    const { muscle_group, notes, weight_lbs, body_fat_percentage, measurements, photo_date } = req.body;
     const file = req.file;
+    
+    // Use custom date if provided, otherwise use current date
+    const photoDate = photo_date ? new Date(photo_date).toISOString() : new Date().toISOString();
 
     // Validate input
     if (!file) {
@@ -156,7 +159,7 @@ router.post('/upload', authenticateToken, upload.single('photo'), async (req, re
           body_fat_percentage: body_fat_percentage ? parseFloat(body_fat_percentage) : null,
           measurements: parsedMeasurements,
           analysis_data: null,
-          created_at: new Date().toISOString()
+          created_at: photoDate
         }
       ])
       .select('*')
@@ -484,15 +487,14 @@ async function analyzeSinglePhoto(photo) {
     }
   });
 
-  const analysisPrompt = `Analyze this ${photo.muscle_group} progress photo for fitness tracking. Provide:
+  const analysisPrompt = `Analyze this ${photo.muscle_group} progress photo. Provide a concise response:
 
-1. **Muscle Development**: Describe the visible development state of ${photo.muscle_group}
-2. **Definition Level**: Rate muscle definition and separation (scale 1-10)
-3. **Symmetry**: Note any asymmetry or balance observations
-4. **Key Observations**: 3-4 specific observations about this muscle group
-5. **Training Focus**: Suggest specific exercises to improve this area
+1. Development State: Current muscle development level (beginner/intermediate/advanced)
+2. Definition Score: Rate 1-10
+3. Top 3 Observations: Most important points only
+4. Key Exercise Recommendations: Top 3 exercises to improve this area
 
-Be specific, encouraging, and actionable.`;
+Keep it SHORT, specific, and actionable. No markdown formatting like ** or ###. Use plain text only.`;
 
   try {
     const visionResponse = await openai.post('/chat/completions', {
@@ -550,17 +552,16 @@ async function comparePhotos(oldPhoto, newPhoto, userId) {
     (new Date(newPhoto.created_at) - new Date(oldPhoto.created_at)) / (1000 * 60 * 60 * 24)
   );
 
-  const comparisonPrompt = `Compare these two ${oldPhoto.muscle_group} progress photos taken ${daysBetween} days apart. The FIRST image is from ${new Date(oldPhoto.created_at).toLocaleDateString()}, and the SECOND image is from ${new Date(newPhoto.created_at).toLocaleDateString()}.
+  const comparisonPrompt = `Compare ${oldPhoto.muscle_group} photos: Photo 1 (${new Date(oldPhoto.created_at).toLocaleDateString()}) vs Photo 2 (${new Date(newPhoto.created_at).toLocaleDateString()}). ${daysBetween} days apart.
 
-Provide a detailed comparison:
+Provide SHORT comparison:
+1. Visible Change: What's different? (size, definition, shape)
+2. Estimated Growth: X% increase/decrease
+3. What Improved: Specific areas that got better
+4. What Needs Work: Specific areas to focus on
+5. Top 2 Exercise Recommendations
 
-1. **Overall Change**: Describe visible changes (growth, definition, size)
-2. **Estimated Growth**: Approximate % change in muscle size/definition
-3. **Definition Improvement**: Has muscle separation improved?
-4. **Symmetry Changes**: Any changes in balance or proportion?
-5. **Recommendations**: Based on progress, what should they focus on next?
-
-Be specific with percentages and measurements when possible. Keep the tone motivating.`;
+Be direct and specific. No markdown symbols. Plain text only. If same day, just say "Same day - no visible change expected".`;
 
   try {
     const visionResponse = await openai.post('/chat/completions', {
