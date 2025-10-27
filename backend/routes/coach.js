@@ -24,25 +24,34 @@ router.post('/chat', authenticateToken, async (req, res) => {
 
     // Check if user is asking for specific date comparisons
     let specificPhotos = null;
-    const dateComparisonMatch = message.match(/(compare|comparison|progress|change|growth).*?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2}).*?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})/i);
+    const dateComparisonMatch = message.match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2}).*?(to|and|vs|-).*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})/i);
     
     if (dateComparisonMatch) {
+      console.log('📅 Date comparison detected:', dateComparisonMatch);
+      
       // Extract muscle group from question
       const muscleMatch = message.match(/(chest|back|shoulders?|biceps?|triceps?|forearms?|abs|obliques?|quads?|hamstrings?|calves?|glutes?|legs?|arms?)/i);
       const muscleGroup = muscleMatch ? muscleMatch[1].toLowerCase() : null;
       
-      // Get ALL photos for this muscle group with dates
+      console.log('💪 Muscle group:', muscleGroup);
+      
+      // Get ALL photos for this user
       const { data: allPhotos } = await supabase
         .from('photos')
         .select('id, muscle_group, created_at, analysis_data, comparison_data, progress_score, url')
         .eq('user_id', req.user.id)
         .order('created_at', { ascending: true });
       
+      console.log(`📸 Found ${allPhotos?.length || 0} total photos for user`);
+      if (allPhotos) {
+        console.log('Photos by date:', allPhotos.map(p => `${new Date(p.created_at).toLocaleDateString()} - ${p.muscle_group}`));
+      }
+      
       specificPhotos = {
         allPhotos: allPhotos || [],
         muscleGroup: muscleGroup,
         requestedDates: {
-          date1: `${dateComparisonMatch[2]} ${dateComparisonMatch[3]}`,
+          date1: `${dateComparisonMatch[1]} ${dateComparisonMatch[2]}`,
           date2: `${dateComparisonMatch[4]} ${dateComparisonMatch[5]}`
         }
       };
@@ -152,19 +161,18 @@ Guidelines:
 6. Suggest specific exercises based on muscle group weaknesses
 7. Provide actionable, specific advice
 8. Be encouraging and motivational
-9. Keep responses concise but informative
-10. Always respond in JSON format with this structure:
+9. Keep responses SHORT, conversational, and friendly
+10. Write like you're texting a gym buddy - no formal structure
+11. If giving suggestions, just mention them naturally in your response
+12. Always respond in JSON format ONLY for the structure, keep the response text natural:
 {
-  "response": "Your main response text",
-  "suggestions": ["suggestion1", "suggestion2", "suggestion3"],
-  "program_mods": ["modification1", "modification2"],
-  "nutrition_tips": ["tip1", "tip2"],
-  "muscle_specific_advice": {
-    "muscle_group": "relevant muscle if asked",
-    "current_state": "description",
-    "recommendations": ["rec1", "rec2"]
-  }
+  "response": "Your SHORT conversational response (max 2-3 sentences). If suggesting exercises, list them naturally like: Try incline press, dumbbell flyes, and push-ups.",
+  "suggestions": [],
+  "program_mods": [],
+  "nutrition_tips": []
 }
+
+CRITICAL: Keep the "response" field SHORT and conversational. No bullet points, no numbered lists, no formal structure. Just natural friendly text.
 
 If the user asks about something not related to fitness, politely redirect them back to fitness topics.`;
 
