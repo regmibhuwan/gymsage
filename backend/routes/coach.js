@@ -128,18 +128,22 @@ router.post('/chat', authenticateToken, async (req, res) => {
       additionalContext = `
 
 IMPORTANT - Date-Specific Comparison Request:
-User is asking to compare photos from specific dates: ${specificPhotos.requestedDates.date1} and ${specificPhotos.requestedDates.date2}
+User is asking to compare photos from: ${specificPhotos.requestedDates.date1} to ${specificPhotos.requestedDates.date2}
 Muscle group requested: ${specificPhotos.muscleGroup || 'not specified'}
 
-Available photos with dates:
-${specificPhotos.allPhotos.map(p => `- ${new Date(p.created_at).toLocaleDateString()}: ${p.muscle_group} (Progress Score: ${p.progress_score || 'N/A'})`).join('\n')}
+ALL AVAILABLE PHOTOS (check these dates carefully):
+${specificPhotos.allPhotos.map(p => {
+  const date = new Date(p.created_at);
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `- ${monthNames[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}: ${p.muscle_group} (Score: ${p.progress_score || 'N/A'})`;
+}).join('\n')}
 
-CRITICAL RULES FOR DATE COMPARISONS:
-1. Check if photos exist for BOTH requested dates (within 2-3 days tolerance)
-2. Check if the muscle group matches what the user asked about
-3. If photos DON'T exist for either date, be HONEST and say: "I don't see any ${specificPhotos.muscleGroup} photos from [missing date(s)]. Please upload photos for those dates first."
-4. If photos exist, compare ONLY those specific photos
-5. Do NOT make up data or use photos from different dates`;
+CRITICAL RULES:
+1. Check if photos exist within ±3 days of the requested dates
+2. Filter by muscle group: ${specificPhotos.muscleGroup}
+3. If photos exist close to those dates (within ±3 days), use them and say "I'm comparing your ${specificPhotos.muscleGroup} from [actual date found] to [actual date found]"
+4. If NO photos exist within ±3 days, say "I don't see ${specificPhotos.muscleGroup} photos from those dates. Here are the dates I have: [list available dates]"
+5. Be helpful - show what dates ARE available if the exact dates don't exist`;
     }
 
     const systemPrompt = `You are an AI fitness coach named GymSage. You help users with their fitness journey by providing personalized advice based on their workout data, progress photos, and muscle-specific analysis.
@@ -178,12 +182,12 @@ If the user asks about something not related to fitness, politely redirect them 
 
     const completion = await Promise.race([
       openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+        model: "gpt-4o-mini",  // Using GPT-4 mini for better date understanding
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: message }
         ],
-        temperature: 0.7,
+        temperature: 0.3,  // Lower temperature for more accurate responses
         max_tokens: 500
       }),
       new Promise((_, reject) => 
