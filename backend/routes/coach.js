@@ -138,12 +138,14 @@ ${specificPhotos.allPhotos.map(p => {
   return `- ${monthNames[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}: ${p.muscle_group} (Score: ${p.progress_score || 'N/A'})`;
 }).join('\n')}
 
-CRITICAL RULES:
-1. Check if photos exist within ±3 days of the requested dates
-2. Filter by muscle group: ${specificPhotos.muscleGroup}
-3. If photos exist close to those dates (within ±3 days), use them and say "I'm comparing your ${specificPhotos.muscleGroup} from [actual date found] to [actual date found]"
-4. If NO photos exist within ±3 days, say "I don't see ${specificPhotos.muscleGroup} photos from those dates. Here are the dates I have: [list available dates]"
-5. Be helpful - show what dates ARE available if the exact dates don't exist`;
+CRITICAL RULES - READ PHOTOS CAREFULLY:
+1. Look at the EXACT dates listed below
+2. Find photos that match the requested dates: ${specificPhotos.requestedDates.date1} and ${specificPhotos.requestedDates.date2}
+3. Check BOTH the date AND muscle group
+4. If you find photos on those dates: Use ONLY those specific photos for comparison
+5. If you DON'T see photos for those exact dates, say: "I don't have ${specificPhotos.muscleGroup} photos from ${specificPhotos.requestedDates.date1} or ${specificPhotos.requestedDates.date2}. Here are the dates I have: [list the actual dates from photos above]"
+6. DO NOT make up percentages or growth if photos don't exist for those dates
+7. DO NOT use different dates than what was requested`;
     }
 
     const systemPrompt = `You are an AI fitness coach named GymSage. You help users with their fitness journey by providing personalized advice based on their workout data, progress photos, and muscle-specific analysis.
