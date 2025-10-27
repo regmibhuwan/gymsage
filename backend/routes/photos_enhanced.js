@@ -141,6 +141,7 @@ router.post('/upload', authenticateToken, upload.single('photo'), async (req, re
         {
           user_id: req.user.id,
           url: publicUrl,
+          view: 'enhanced', // Default value for backward compatibility
           muscle_group,
           notes,
           weight_lbs: weight_lbs ? parseFloat(weight_lbs) : null,
