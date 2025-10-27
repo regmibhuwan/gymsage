@@ -138,14 +138,14 @@ ${specificPhotos.allPhotos.map(p => {
   return `- ${monthNames[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}: ${p.muscle_group} (Score: ${p.progress_score || 'N/A'})`;
 }).join('\n')}
 
-CRITICAL RULES - READ PHOTOS CAREFULLY:
-1. Look at the EXACT dates listed below
-2. Find photos that match the requested dates: ${specificPhotos.requestedDates.date1} and ${specificPhotos.requestedDates.date2}
-3. Check BOTH the date AND muscle group
-4. If you find photos on those dates: Use ONLY those specific photos for comparison
-5. If you DON'T see photos for those exact dates, say: "I don't have ${specificPhotos.muscleGroup} photos from ${specificPhotos.requestedDates.date1} or ${specificPhotos.requestedDates.date2}. Here are the dates I have: [list the actual dates from photos above]"
-6. DO NOT make up percentages or growth if photos don't exist for those dates
-7. DO NOT use different dates than what was requested`;
+CRITICAL RULES - MATCH DATES BY MONTH AND DAY:
+1. User wants to compare photos from ${specificPhotos.requestedDates.date1} to ${specificPhotos.requestedDates.date2}
+2. Look for photos in the list above that have the SAME MONTH AND DAY (ignore the year)
+3. For example, if user asks "may 14", look for photos showing "May 14" in the list above
+4. Filter by muscle group: ${specificPhotos.muscleGroup}
+5. If you find matching photos: Compare them and give the actual growth percentage/improvement
+6. If you DON'T find matching photos: Say "I don't have ${specificPhotos.muscleGroup} photos from those dates. I have photos from: [list actual dates found]"
+7. DO NOT compare photos from wrong dates`;
     }
 
     const systemPrompt = `You are an AI fitness coach named GymSage. You help users with their fitness journey by providing personalized advice based on their workout data, progress photos, and muscle-specific analysis.
