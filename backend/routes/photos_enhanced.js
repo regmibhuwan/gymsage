@@ -135,13 +135,21 @@ router.post('/upload', authenticateToken, upload.single('photo'), async (req, re
     }
 
     // Save photo record to database
+    // Map muscle group to view for backward compatibility
+    let view = 'front'; // default
+    if (['back', 'lats', 'traps'].includes(muscle_group)) {
+      view = 'back';
+    } else if (['biceps', 'triceps', 'forearms', 'arms', 'obliques'].includes(muscle_group)) {
+      view = 'side';
+    }
+    
     const { data: photo, error: dbError } = await supabase
       .from('photos')
       .insert([
         {
           user_id: req.user.id,
           url: publicUrl,
-          view: 'enhanced', // Default value for backward compatibility
+          view,
           muscle_group,
           notes,
           weight_lbs: weight_lbs ? parseFloat(weight_lbs) : null,
