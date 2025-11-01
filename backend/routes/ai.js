@@ -62,7 +62,14 @@ router.post('/chat', authenticateToken, async (req, res) => {
 - Be specific about what you observe in their photos, reference muscle groups they've tracked
 - Provide actionable, personalized recommendations based on their actual photo data and metrics
 - If asked about specific date ranges, use the photo dates provided in the context to give accurate comparisons
-- Avoid generic advice - base your responses on their actual photo data and metrics`;
+- Avoid generic advice - base your responses on their actual photo data and metrics
+
+IMPORTANT FORMATTING RULES:
+- Use bullet points (• or -) for lists and recommendations instead of paragraphs
+- Use line breaks (\\n\\n) between different topics or sections
+- Use numbered lists for step-by-step instructions
+- DO NOT use markdown formatting like **bold** or *italic* - just use plain text with line breaks and bullets
+- Keep paragraphs short and break them with line breaks for better readability`;
 
     // Build messages array with history
     const messages = [
@@ -105,7 +112,7 @@ router.post('/chat', authenticateToken, async (req, res) => {
 
     messages.push({
       role: 'user',
-      content: `Context:\n${contextSummary}\n\nUser's question: ${message}\n\nPlease provide a detailed, specific response based on the photos and dates available.`
+      content: `Context:\n${contextSummary}\n\nUser's question: ${message}\n\nPlease provide a detailed, specific response based on the photos and dates available. Format your response with:\n- Line breaks between paragraphs\n- Bullet points (• or -) for lists\n- Numbered lists (1. 2. 3.) for step-by-step instructions\n- NO markdown formatting (no **bold** or *italic*)\n- NO asterisks for emphasis\n- Keep paragraphs short and well-spaced`
     });
 
     const completion = await client.chat.completions.create({
@@ -114,7 +121,20 @@ router.post('/chat', authenticateToken, async (req, res) => {
       temperature: 0.5
     });
 
-    const content = completion.choices?.[0]?.message?.content || 'I apologize, but I couldn\'t generate a response. Please try again.';
+    let content = completion.choices?.[0]?.message?.content || 'I apologize, but I couldn\'t generate a response. Please try again.';
+    
+    // Clean up markdown formatting
+    // Remove markdown bold (**text** or __text__)
+    content = content.replace(/\*\*([^*]+)\*\*/g, '$1');
+    content = content.replace(/__([^_]+)__/g, '$1');
+    // Remove markdown italic (*text* or _text_)
+    content = content.replace(/\*([^*]+)\*/g, '$1');
+    content = content.replace(/_([^_]+)_/g, '$1');
+    // Remove markdown headers (# Header)
+    content = content.replace(/^#{1,6}\s+/gm, '');
+    // Ensure proper line breaks (double newlines for paragraphs)
+    content = content.replace(/\n\n+/g, '\n\n');
+    
     return res.json({ content });
   } catch (err) {
     console.error('AI chat error:', err);

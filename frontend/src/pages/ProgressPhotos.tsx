@@ -243,8 +243,18 @@ const ProgressPhotos: React.FC = () => {
         }
       }
       
-      // Clean up response - remove any JSON artifacts, extra whitespace, or special characters
-      aiResponse = aiResponse.trim().replace(/\s+/g, ' ');
+      // Clean up response - remove markdown formatting and preserve line breaks
+      // Remove markdown bold/italic (**text**, *text*, __text__, _text_)
+      aiResponse = aiResponse.replace(/\*\*([^*]+)\*\*/g, '$1');
+      aiResponse = aiResponse.replace(/__([^_]+)__/g, '$1');
+      aiResponse = aiResponse.replace(/\*([^*]+)\*/g, '$1');
+      aiResponse = aiResponse.replace(/_([^_]+)_/g, '$1');
+      // Remove markdown headers
+      aiResponse = aiResponse.replace(/^#{1,6}\s+/gm, '');
+      // Normalize line breaks (preserve intentional double breaks, remove excessive ones)
+      aiResponse = aiResponse.replace(/\n{3,}/g, '\n\n');
+      // Trim and clean up
+      aiResponse = aiResponse.trim();
 
       setChatHistory(prev => [...prev, { role: 'assistant', content: aiResponse }]);
     } catch (error: any) {
