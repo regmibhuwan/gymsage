@@ -208,17 +208,43 @@ const ProgressPhotos: React.FC = () => {
         history: chatHistory.map(msg => ({ role: msg.role, content: msg.content }))
       });
       
-      // New endpoint returns { content: "..." }
+      // Extract plain text response - handle both new and legacy formats
+      // IMPORTANT: Only extract the text content, never show JSON structure
       let aiResponse = '';
-      if (response.data.content) {
+      
+      // New AI endpoint format: { content: "..." }
+      if (response.data && response.data.content && typeof response.data.content === 'string') {
         aiResponse = response.data.content;
-      } else if (typeof response.data === 'string') {
+      } 
+      // Legacy coach endpoint format: { message: "...", suggestions: [], ... }
+      else if (response.data && response.data.message && typeof response.data.message === 'string') {
+        aiResponse = response.data.message;
+      } 
+      // Direct string response
+      else if (typeof response.data === 'string') {
         aiResponse = response.data;
-      } else if (response.data.response) {
+      } 
+      // Other response formats
+      else if (response.data && response.data.response && typeof response.data.response === 'string') {
         aiResponse = response.data.response;
-      } else {
-        aiResponse = JSON.stringify(response.data);
+      } 
+      // Fallback - extract any text content, avoid JSON stringification
+      else {
+        // Try to extract meaningful text from the response
+        const data = response.data || {};
+        if (typeof data.text === 'string') {
+          aiResponse = data.text;
+        } else if (typeof data.summary === 'string') {
+          aiResponse = data.summary;
+        } else {
+          // Last resort - if we somehow got JSON, extract just the message
+          console.warn('Unexpected response format:', response.data);
+          aiResponse = 'I received your message but encountered a formatting issue. Please try again.';
+        }
       }
+      
+      // Clean up response - remove any JSON artifacts, extra whitespace, or special characters
+      aiResponse = aiResponse.trim().replace(/\s+/g, ' ');
 
       setChatHistory(prev => [...prev, { role: 'assistant', content: aiResponse }]);
     } catch (error: any) {
