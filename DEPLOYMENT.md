@@ -15,6 +15,34 @@ Deploy your GymSage app **100% FREE** using modern cloud platforms!
 ## 📋 Prerequisites
 
 1. GitHub account
+## AI Analysis Additions
+
+- New backend route: `/api/ai/analyze` (POST)
+  - Body: `{ "muscle_group": "chest", "user_metrics": { "age": 28, "height_cm": 178 } }`
+  - Returns structured JSON: `{ muscle_group, change_percentage, trend, summary, recommendations, confidence }`
+- New backend route: `/api/ai/chat` (POST)
+  - Body: `{ "message": "What should I focus on next week?", "history": [...] }`
+  - Pulls recent uploads to ground answers; maintains context via provided `history` for now.
+- Services added:
+  - `backend/services/openaiClient.js`: central OpenAI client using `OPENAI_API_KEY`
+  - `backend/services/aiAnalysis.js`: fetches latest/previous photos from Supabase and calls OpenAI with JSON schema
+
+### Model recommendations
+
+- `OPENAI_MODEL` default: `gpt-4-turbo` (strong reasoning, JSON schema support)
+- Chat: `OPENAI_CHAT_MODEL` default falls back to `OPENAI_MODEL`
+- If available: prefer `gpt-4o`/`gpt-4o-mini` for image+reasoning speed; fallback to `gpt-4-turbo`.
+
+### Data flow (Supabase → AI → Response)
+
+1. Supabase: select last two photos for `user_id` + `muscle_group` from `photos`
+2. AI service: build prompt with URLs + metadata (timestamps, notes, weight, body fat, measurements)
+3. OpenAI: respond via JSON schema → parsed and returned
+4. Frontend: render structured response in UI (no breaking changes to upload/storage)
+
+### Environment
+
+Set `OPENAI_API_KEY` and optionally `OPENAI_MODEL`, `OPENAI_CHAT_MODEL` in backend env.
 2. Vercel account (sign up with GitHub)
 3. Render account (sign up with GitHub)
 4. Your Supabase project (already set up)

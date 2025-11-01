@@ -9,6 +9,7 @@ const workoutRoutes = require('./routes/workouts');
 const photoRoutes = require('./routes/photos');
 const photoEnhancedRoutes = require('./routes/photos_enhanced');
 const coachRoutes = require('./routes/coach');
+const aiRoutes = require('./routes/ai');
 const voiceRoutes = require('./routes/voice');
 
 const app = express();
@@ -44,6 +45,7 @@ app.use('/api/photos/enhanced', photoEnhancedRoutes); // Must be before /api/pho
 app.use('/api/photos', photoRoutes);
 app.use('/api/coach', coachRoutes);
 app.use('/api/voice', voiceRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

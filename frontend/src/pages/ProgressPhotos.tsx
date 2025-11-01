@@ -202,13 +202,20 @@ const ProgressPhotos: React.FC = () => {
     setChatLoading(true);
 
     try {
-      const response = await api.post('/coach/chat', { message: userMessage });
+      // Use the new AI chat endpoint with context from recent photos
+      const response = await api.post('/ai/chat', { 
+        message: userMessage,
+        history: chatHistory.map(msg => ({ role: msg.role, content: msg.content }))
+      });
       
+      // New endpoint returns { content: "..." }
       let aiResponse = '';
-      if (response.data.response) {
-        aiResponse = response.data.response;
+      if (response.data.content) {
+        aiResponse = response.data.content;
       } else if (typeof response.data === 'string') {
         aiResponse = response.data;
+      } else if (response.data.response) {
+        aiResponse = response.data.response;
       } else {
         aiResponse = JSON.stringify(response.data);
       }
