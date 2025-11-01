@@ -301,7 +301,7 @@ const Dashboard: React.FC = () => {
           const totalWorkouts = workouts.length;
           if (totalWorkouts > 0) {
             const allDates = workouts.map(w => normalizeDate(w.date)).filter(d => d);
-            const uniqueDates = [...new Set(allDates)].sort();
+            const uniqueDates = Array.from(new Set(allDates)).sort();
             const weekDatesList = uniqueDates.slice(0, 10).join(', ');
             toast.error(`No workouts found this week (${weekStart.toLocaleDateString()} - ${weekEnd.toLocaleDateString()}). You have ${totalWorkouts} total workouts. Dates: ${weekDatesList}${uniqueDates.length > 10 ? '...' : ''}`, {
               duration: 7000
