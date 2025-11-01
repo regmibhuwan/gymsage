@@ -145,35 +145,71 @@ const Dashboard: React.FC = () => {
     setExpandedWorkouts(newExpanded);
   };
 
+  // Helper function to normalize and compare dates precisely
+  const normalizeDate = (dateInput: string | Date): string => {
+    if (!dateInput) return '';
+    
+    // If it's already a date string in YYYY-MM-DD format, return it
+    if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+      return dateInput;
+    }
+    
+    // Otherwise parse as date and extract YYYY-MM-DD
+    const date = new Date(dateInput);
+    if (isNaN(date.getTime())) return '';
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const generateSummary = async (type: 'daily' | 'weekly') => {
     try {
       if (type === 'daily') {
         // Get all workouts for today and aggregate exercises
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const todayStr = today.toISOString().split('T')[0];
+        const todayStr = normalizeDate(today);
         
-        // Normalize dates for comparison
+        // Normalize dates for comparison - try multiple methods
         const todayWorkouts = workouts.filter(workout => {
           if (!workout || !workout.date) return false;
+          
+          // Try direct string comparison first (if date is already YYYY-MM-DD)
+          const workoutDateStr = normalizeDate(workout.date);
+          
+          // Also check if workout.date matches today's date string directly
+          if (workout.date === todayStr || workoutDateStr === todayStr) {
+            return true;
+          }
+          
+          // Try parsing as date and comparing
           const workoutDate = new Date(workout.date);
-          workoutDate.setHours(0, 0, 0, 0);
-          const workoutStr = workoutDate.toISOString().split('T')[0];
-          return workoutStr === todayStr;
+          if (!isNaN(workoutDate.getTime())) {
+            workoutDate.setHours(0, 0, 0, 0);
+            const normalized = normalizeDate(workoutDate);
+            return normalized === todayStr;
+          }
+          
+          return false;
         });
         
-        console.log('📅 Today\'s date:', todayStr);
-        console.log('📊 All workouts:', workouts);
-        console.log('🎯 Today\'s workouts:', todayWorkouts);
+        console.log('📅 Today\'s date string:', todayStr);
+        console.log('📅 Today\'s Date object:', today);
+        console.log('📊 All workouts with dates:', workouts.map(w => ({ id: w.id, date: w.date, normalized: normalizeDate(w.date) })));
+        console.log('🎯 Today\'s workouts found:', todayWorkouts.length, todayWorkouts.map(w => ({ id: w.id, date: w.date })));
         
         if (todayWorkouts.length === 0) {
-          // Show helpful message with option to see recent workouts
+          // Show helpful message with all recent workout dates
           const recentWorkouts = workouts.slice(0, 5);
-          const mostRecent = recentWorkouts[0];
-          if (mostRecent) {
-            const lastDate = new Date(mostRecent.date).toLocaleDateString();
-            toast.error(`No workout found for today. Most recent: ${lastDate}`, {
-              duration: 4000
+          if (recentWorkouts.length > 0) {
+            const datesList = recentWorkouts.map(w => {
+              const date = new Date(w.date);
+              return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            }).join(', ');
+            toast.error(`No workout found for today (${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}). Recent: ${datesList}`, {
+              duration: 6000
             });
           } else {
             toast.error('No workouts found. Add your first workout to see summaries!');
@@ -196,7 +232,7 @@ const Dashboard: React.FC = () => {
 
         const response = await api.post('/voice/summary/daily', {
           exercises: allExercises,
-          date: today
+          date: todayStr
         });
         
         if (response.data.success) {
@@ -222,26 +258,53 @@ const Dashboard: React.FC = () => {
         weekEnd.setDate(weekEnd.getDate() + 6);
         weekEnd.setHours(23, 59, 59, 999);
         
-        console.log('📅 Weekly range:', weekStart.toISOString(), 'to', weekEnd.toISOString());
-        console.log('📊 All workouts:', workouts);
+        const weekStartStr = normalizeDate(weekStart);
+        const weekEndStr = normalizeDate(weekEnd);
+        
+        console.log('📅 Weekly range:', weekStartStr, 'to', weekEndStr);
+        console.log('📅 Weekly Date objects:', weekStart.toISOString(), 'to', weekEnd.toISOString());
+        console.log('📊 All workouts with dates:', workouts.map(w => ({ id: w.id, date: w.date, normalized: normalizeDate(w.date) })));
         
         const weekWorkouts = workouts.filter(workout => {
           if (!workout || !workout.date) return false;
+          
+          // Normalize workout date
+          const workoutDateStr = normalizeDate(workout.date);
           const workoutDate = new Date(workout.date);
-          workoutDate.setHours(0, 0, 0, 0);
-          return workoutDate >= weekStart && workoutDate <= weekEnd;
+          
+          // Check if workout date falls within week range
+          if (!isNaN(workoutDate.getTime())) {
+            workoutDate.setHours(0, 0, 0, 0);
+            // Compare normalized date strings
+            const normalized = normalizeDate(workoutDate);
+            if (normalized >= weekStartStr && normalized <= weekEndStr) {
+              return true;
+            }
+            // Also check date objects directly
+            if (workoutDate >= weekStart && workoutDate <= weekEnd) {
+              return true;
+            }
+          }
+          
+          // Fallback: direct string comparison if dates are in YYYY-MM-DD format
+          if (/^\d{4}-\d{2}-\d{2}$/.test(workout.date)) {
+            return workout.date >= weekStartStr && workout.date <= weekEndStr;
+          }
+          
+          return false;
         });
         
-        console.log('🎯 Week workouts:', weekWorkouts);
+        console.log('🎯 Week workouts found:', weekWorkouts.length, weekWorkouts.map(w => ({ id: w.id, date: w.date })));
         
         if (weekWorkouts.length === 0) {
-          // Show helpful message with stats
+          // Show helpful message with stats and all workout dates
           const totalWorkouts = workouts.length;
           if (totalWorkouts > 0) {
-            const oldestWorkout = workouts[workouts.length - 1];
-            const oldestDate = new Date(oldestWorkout.date).toLocaleDateString();
-            toast.error(`No workouts found this week. You have ${totalWorkouts} total workouts. Oldest: ${oldestDate}`, {
-              duration: 5000
+            const allDates = workouts.map(w => normalizeDate(w.date)).filter(d => d);
+            const uniqueDates = [...new Set(allDates)].sort();
+            const weekDatesList = uniqueDates.slice(0, 10).join(', ');
+            toast.error(`No workouts found this week (${weekStart.toLocaleDateString()} - ${weekEnd.toLocaleDateString()}). You have ${totalWorkouts} total workouts. Dates: ${weekDatesList}${uniqueDates.length > 10 ? '...' : ''}`, {
+              duration: 7000
             });
           } else {
             toast.error('No workouts found. Add workouts to see weekly summaries!');
