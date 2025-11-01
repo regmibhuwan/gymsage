@@ -14,7 +14,10 @@ import {
   ChevronRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell, Legend 
+} from 'recharts';
 
 interface Workout {
   id: string;
@@ -146,18 +149,35 @@ const Dashboard: React.FC = () => {
     try {
       if (type === 'daily') {
         // Get all workouts for today and aggregate exercises
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStr = today.toISOString().split('T')[0];
         
-        console.log('📅 Today\'s date:', today);
+        // Normalize dates for comparison
+        const todayWorkouts = workouts.filter(workout => {
+          if (!workout || !workout.date) return false;
+          const workoutDate = new Date(workout.date);
+          workoutDate.setHours(0, 0, 0, 0);
+          const workoutStr = workoutDate.toISOString().split('T')[0];
+          return workoutStr === todayStr;
+        });
+        
+        console.log('📅 Today\'s date:', todayStr);
         console.log('📊 All workouts:', workouts);
-        
-        const todayWorkouts = workouts.filter(workout => workout.date === today);
-        
         console.log('🎯 Today\'s workouts:', todayWorkouts);
         
         if (todayWorkouts.length === 0) {
-          console.error('❌ No workouts found for today');
-          toast.error('No workout found for today');
+          // Show helpful message with option to see recent workouts
+          const recentWorkouts = workouts.slice(0, 5);
+          const mostRecent = recentWorkouts[0];
+          if (mostRecent) {
+            const lastDate = new Date(mostRecent.date).toLocaleDateString();
+            toast.error(`No workout found for today. Most recent: ${lastDate}`, {
+              duration: 4000
+            });
+          } else {
+            toast.error('No workouts found. Add your first workout to see summaries!');
+          }
           return;
         }
 
@@ -189,29 +209,43 @@ const Dashboard: React.FC = () => {
           });
         }
       } else if (type === 'weekly') {
-        // Get workouts from the current week
+        // Get workouts from the current week (Monday to Sunday)
         const now = new Date();
         const weekStart = new Date(now);
-        weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Start of week (Sunday)
-        weekStart.setHours(0, 0, 0, 0); // Reset to start of day
+        const dayOfWeek = weekStart.getDay();
+        // Adjust to Monday as start of week (0=Sunday, so if Sunday, go back 6 days, otherwise subtract (day-1))
+        const daysToMonday = dayOfWeek === 0 ? -6 : -(dayOfWeek - 1);
+        weekStart.setDate(weekStart.getDate() + daysToMonday);
+        weekStart.setHours(0, 0, 0, 0);
         
         const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekEnd.getDate() + 6); // End of week (Saturday)
-        weekEnd.setHours(23, 59, 59, 999); // End of day
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
         
         console.log('📅 Weekly range:', weekStart.toISOString(), 'to', weekEnd.toISOString());
         console.log('📊 All workouts:', workouts);
         
         const weekWorkouts = workouts.filter(workout => {
+          if (!workout || !workout.date) return false;
           const workoutDate = new Date(workout.date);
+          workoutDate.setHours(0, 0, 0, 0);
           return workoutDate >= weekStart && workoutDate <= weekEnd;
         });
         
         console.log('🎯 Week workouts:', weekWorkouts);
         
         if (weekWorkouts.length === 0) {
-          console.error('❌ No workouts found for this week');
-          toast.error('No workouts found for this week');
+          // Show helpful message with stats
+          const totalWorkouts = workouts.length;
+          if (totalWorkouts > 0) {
+            const oldestWorkout = workouts[workouts.length - 1];
+            const oldestDate = new Date(oldestWorkout.date).toLocaleDateString();
+            toast.error(`No workouts found this week. You have ${totalWorkouts} total workouts. Oldest: ${oldestDate}`, {
+              duration: 5000
+            });
+          } else {
+            toast.error('No workouts found. Add workouts to see weekly summaries!');
+          }
           return;
         }
 
@@ -258,11 +292,19 @@ const Dashboard: React.FC = () => {
 
   const getProgressData = () => {
     const exerciseData: Record<string, Array<{date: string, weight: number, volume: number}>> = {};
+    const dateVolumeMap: Record<string, number> = {};
+    const exerciseFrequency: Record<string, number> = {};
     
     workouts.forEach(workout => {
       if (workout.exercises && Array.isArray(workout.exercises)) {
+        let dayVolume = 0;
+        
         workout.exercises.forEach(exercise => {
           const exerciseName = exercise.exercise;
+          
+          // Exercise frequency
+          exerciseFrequency[exerciseName] = (exerciseFrequency[exerciseName] || 0) + 1;
+          
           if (!exerciseData[exerciseName]) {
             exerciseData[exerciseName] = [];
           }
@@ -270,6 +312,7 @@ const Dashboard: React.FC = () => {
           if (exercise.sets && Array.isArray(exercise.sets)) {
             const maxWeight = Math.max(...exercise.sets.map(set => set.weight_kg));
             const totalVolume = exercise.sets.reduce((sum, set) => sum + (set.reps * set.weight_kg), 0);
+            dayVolume += totalVolume;
             
             exerciseData[exerciseName].push({
               date: workout.date,
@@ -278,11 +321,30 @@ const Dashboard: React.FC = () => {
             });
           }
         });
+        
+        // Daily volume tracking
+        if (workout.date) {
+          dateVolumeMap[workout.date] = (dateVolumeMap[workout.date] || 0) + dayVolume;
+        }
       }
     });
 
-    return exerciseData;
+    // Convert date volume map to array for charts
+    const dailyVolumeData = Object.entries(dateVolumeMap)
+      .map(([date, volume]) => ({ date, volume }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .slice(-14); // Last 14 days
+
+    // Top exercises for pie chart
+    const topExercises = Object.entries(exerciseFrequency)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([name, count]) => ({ name, value: count }));
+
+    return { exerciseData, dailyVolumeData, topExercises, exerciseFrequency };
   };
+
+  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
   if (loading) {
     return (
@@ -599,41 +661,199 @@ const Dashboard: React.FC = () => {
         )}
       </div>
 
-      {/* Progress Charts */}
-      {workouts.length > 0 && (
-        <div className="card">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Progress Overview</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Exercise Volume Trends</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={Object.values(getProgressData())[0]?.slice(-10) || []}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="volume" stroke="#3b82f6" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
+      {/* Progress Overview - Enhanced */}
+      {workouts.length > 0 && (() => {
+        const progressData = getProgressData();
+        const topExerciseData = Object.entries(progressData.exerciseData)
+          .sort(([, a], [, b]) => b.length - a.length)
+          .slice(0, 5)
+          .map(([exercise, data]) => ({
+            exercise: exercise.charAt(0).toUpperCase() + exercise.slice(1),
+            count: data.length,
+            avgVolume: data.reduce((sum, d) => sum + d.volume, 0) / data.length,
+            maxWeight: Math.max(...data.map(d => d.weight))
+          }));
+
+        return (
+          <div className="space-y-6">
+            {/* Progress Overview Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Progress Overview</h2>
+                <p className="text-gray-600 mt-1">Track your fitness journey with detailed analytics</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Top Exercises</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={Object.entries(getProgressData()).map(([exercise, data]) => ({
-                  exercise: exercise.charAt(0).toUpperCase() + exercise.slice(1),
-                  count: data.length
-                })).slice(0, 5)}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="exercise" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#10b981" />
-                </BarChart>
-              </ResponsiveContainer>
+
+            {/* Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Daily Volume Trend - Enhanced */}
+              <div className="card bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-100">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Daily Volume Trend</h3>
+                    <p className="text-sm text-gray-600">Last 14 days</p>
+                  </div>
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <TrendingUp className="h-5 w-5 text-blue-600" />
+                  </div>
+                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={progressData.dailyVolumeData}>
+                    <defs>
+                      <linearGradient id="colorVolume" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis 
+                      dataKey="date" 
+                      tickFormatter={(date) => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      stroke="#6b7280"
+                    />
+                    <YAxis stroke="#6b7280" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#fff', 
+                        border: '1px solid #e5e7eb', 
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      }}
+                      labelFormatter={(date) => new Date(date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                      formatter={(value: number) => [`${value.toFixed(0)} kg`, 'Volume']}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="volume" 
+                      stroke="#3b82f6" 
+                      strokeWidth={3}
+                      fillOpacity={1}
+                      fill="url(#colorVolume)" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Top Exercises - Enhanced */}
+              <div className="card bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-100">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Top Exercises</h3>
+                    <p className="text-sm text-gray-600">Most performed exercises</p>
+                  </div>
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Dumbbell className="h-5 w-5 text-green-600" />
+                  </div>
+                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={topExerciseData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis 
+                      dataKey="exercise" 
+                      angle={-45}
+                      textAnchor="end"
+                      height={80}
+                      stroke="#6b7280"
+                    />
+                    <YAxis stroke="#6b7280" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#fff', 
+                        border: '1px solid #e5e7eb', 
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      }}
+                      formatter={(value: number, name: string) => {
+                        if (name === 'count') return [`${value} sessions`, 'Times Performed'];
+                        if (name === 'avgVolume') return [`${value.toFixed(0)} kg`, 'Avg Volume'];
+                        if (name === 'maxWeight') return [`${value.toFixed(1)} kg`, 'Max Weight'];
+                        return [value, name];
+                      }}
+                    />
+                    <Bar 
+                      dataKey="count" 
+                      fill="#10b981"
+                      radius={[8, 8, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
+
+            {/* Exercise Distribution - New */}
+            {progressData.topExercises.length > 0 && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="card bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-100">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900">Exercise Distribution</h3>
+                      <p className="text-sm text-gray-600">Workout frequency breakdown</p>
+                    </div>
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <BarChart3 className="h-5 w-5 text-purple-600" />
+                    </div>
+                  </div>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <PieChart>
+                      <Pie
+                        data={progressData.topExercises}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {progressData.topExercises.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#fff', 
+                          border: '1px solid #e5e7eb', 
+                          borderRadius: '8px',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                        }}
+                        formatter={(value: number) => [`${value} sessions`, 'Times Performed']}
+                      />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Exercise Stats Cards */}
+                <div className="space-y-4">
+                  <div className="card bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-100">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4">Exercise Statistics</h3>
+                    <div className="space-y-3">
+                      {topExerciseData.slice(0, 5).map((exercise, index) => (
+                        <div key={exercise.exercise} className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
+                          <div className="flex items-center space-x-3">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                            />
+                            <div>
+                              <p className="font-semibold text-gray-900">{exercise.exercise}</p>
+                              <p className="text-xs text-gray-600">{exercise.count} sessions</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-bold text-gray-900">{exercise.maxWeight.toFixed(1)} kg</p>
+                            <p className="text-xs text-gray-600">max weight</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        );
+      })()}
       
       {/* Summary Modal */}
       <SummaryModal
