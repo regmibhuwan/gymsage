@@ -79,11 +79,12 @@ export const parseVoiceTranscript = async (transcript: string) => {
 /**
  * AI Coach chat API call
  * @param {string} message - User message
+ * @param {Array} history - Conversation history (optional)
  * @returns {Promise} AI response
  */
-export const chatWithCoach = async (message: string) => {
+export const chatWithCoach = async (message: string, history: Array<{role: string; content: string}> = []) => {
   return apiCall(
-    () => api.post('/coach/chat', { message }),
+    () => api.post('/coach/chat', { message, history }),
     'Failed to get AI coach response'
   );
 };

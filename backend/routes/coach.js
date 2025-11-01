@@ -16,7 +16,7 @@ const openai = new OpenAI({
  */
 router.post('/chat', authenticateToken, async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, history } = req.body || {};
 
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
@@ -148,7 +148,7 @@ CRITICAL RULES - MATCH DATES BY MONTH AND DAY:
 7. DO NOT compare photos from wrong dates`;
     }
 
-    const systemPrompt = `You are an AI fitness coach named GymSage. You help users with their fitness journey by providing personalized advice based on their workout data, progress photos, and muscle-specific analysis.
+    const systemPrompt = `You are an expert AI fitness coach named GymSage. You provide personalized, well-written fitness, nutrition, and training advice based on the user's workout data, progress photos, and goals.
 
 User Context:
 - Name: ${context.user.name}
@@ -158,56 +158,92 @@ User Context:
 - Recent Comparisons: ${JSON.stringify(context.user.muscleComparisons)}
 ${additionalContext}
 
-Guidelines:
-1. BE HONEST - If photos don't exist for the dates requested, say so clearly
-2. Check dates carefully when user asks for specific date comparisons
-3. When asked "Is my [muscle] growing?", reference actual growth_percentage from data
-4. When asked "Which muscle improved most?", compare the actual progress scores
-5. When asked about cutting/bulking, analyze overall trends and body composition
-6. Suggest specific exercises based on muscle group weaknesses
-7. Provide actionable, specific advice
-8. Be encouraging and motivational
-9. Keep responses SHORT, conversational, and friendly
-10. Write like you're texting a gym buddy - no formal structure
-11. If giving suggestions, just mention them naturally in your response
-12. Always respond in JSON format ONLY for the structure, keep the response text natural:
+YOUR ROLE:
+- You remember previous conversations and can reference what was discussed earlier
+- You provide well-written, detailed, and helpful responses for fitness, nutrition, and training
+- You format responses clearly with line breaks, bullet points, and numbered lists when appropriate
+- You are knowledgeable about nutrition, macro tracking, meal timing, supplements, training splits, progressive overload, recovery, and more
+
+RESPONSE QUALITY GUIDELINES:
+1. BE HONEST and accurate - If photos don't exist for dates requested, say so clearly
+2. REMEMBER previous conversation topics - Reference what was discussed earlier if relevant
+3. Provide DETAILED, WELL-WRITTEN responses (not just 2-3 sentences - be thorough and helpful)
+4. Use proper formatting:
+   - Line breaks between paragraphs
+   - Bullet points (• or -) for lists
+   - Numbered lists (1. 2. 3.) for step-by-step advice
+   - NO markdown formatting (**bold** or *italic*) - just plain text
+5. For fitness questions: Provide exercise recommendations, sets/reps, form tips, training frequency
+6. For nutrition questions: Provide macro breakdowns, meal examples, timing advice, food suggestions
+7. For progress questions: Reference actual data (growth percentages, progress scores) from their photos
+8. Be encouraging and motivational but also realistic
+9. Reference previous conversation topics naturally when relevant
+
+RESPONSE FORMAT:
+Return JSON with this structure:
 {
-  "response": "Your SHORT conversational response (max 2-3 sentences). If suggesting exercises, list them naturally like: Try incline press, dumbbell flyes, and push-ups.",
-  "suggestions": [],
-  "program_mods": [],
-  "nutrition_tips": []
+  "response": "Your detailed, well-written response here. Use line breaks (\\n\\n) between paragraphs. Use bullet points for lists. Be thorough and helpful.",
+  "suggestions": ["Exercise suggestion 1", "Exercise suggestion 2"],
+  "program_mods": ["Training modification 1", "Training modification 2"],
+  "nutrition_tips": ["Nutrition tip 1", "Nutrition tip 2"]
 }
 
 CRITICAL: 
-- Keep the "response" field SHORT and conversational (2-3 sentences max)
-- Write in proper English, not JSON format symbols like {"message": or brackets
-- No "I'm comparing your chest from X to Y" - just say what you found
-- Example good response: "Your chest grew about 3% from Oct 6 to Oct 26. The upper chest is looking fuller. Keep hitting those incline presses!"
-- Example bad response: "I'm comparing... score of 50... within time frame... keep pushing"
+- Keep response DETAILED and helpful (5-10 sentences for complex questions, 3-5 for simple ones)
+- Use line breaks (\\n\\n) to separate paragraphs for readability
+- Reference previous conversation topics when relevant
+- Write naturally - no JSON symbols or technical jargon
+- Example good response: "Based on your chest photos, you've shown solid progress. The upper chest has improved by about 8% over the past two months.\\n\\nTo continue this growth, focus on:\\n- Incline bench press (4 sets x 6-8 reps)\\n- Incline dumbbell flyes (3 sets x 10-12 reps)\\n- Cable crossovers (3 sets x 12-15 reps)\\n\\nMake sure you're progressively overloading each week."`;
 
-If the user asks about something not related to fitness, politely redirect them back to fitness topics.`;
+    // Build messages array with conversation history
+    const messages = [
+      { role: "system", content: systemPrompt }
+    ];
+
+    // Add conversation history (last 15 messages to maintain context without overwhelming)
+    const conversationHistory = Array.isArray(history) ? history.slice(-15) : [];
+    conversationHistory.forEach(msg => {
+      if (msg.role && msg.content) {
+        messages.push({ role: msg.role, content: msg.content });
+      }
+    });
+
+    // Add current message
+    messages.push({ role: "user", content: message });
 
     const completion = await Promise.race([
       openai.chat.completions.create({
-        model: "gpt-4o-mini",  // Using GPT-4 mini for better date understanding
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: message }
-        ],
-        temperature: 0.3,  // Lower temperature for more accurate responses
-        max_tokens: 500
+        model: "gpt-4-turbo",  // Using GPT-4 Turbo for better quality responses
+        messages: messages,
+        temperature: 0.7,  // Higher temperature for more natural, varied responses
+        max_tokens: 1000  // More tokens for detailed responses
       }),
       new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Request timeout')), 15000)
       )
     ]);
 
-    const aiResponse = completion.choices[0].message.content;
+    let aiResponse = completion.choices[0].message.content;
+
+    // Clean up markdown formatting
+    aiResponse = aiResponse.replace(/\*\*([^*]+)\*\*/g, '$1');
+    aiResponse = aiResponse.replace(/__([^_]+)__/g, '$1');
+    aiResponse = aiResponse.replace(/\*([^*]+)\*/g, '$1');
+    aiResponse = aiResponse.replace(/_([^_]+)_/g, '$1');
+    aiResponse = aiResponse.replace(/^#{1,6}\s+/gm, '');
 
     // Try to parse JSON response, fallback to plain text
     let parsedResponse;
     try {
       parsedResponse = JSON.parse(aiResponse);
+      // Clean markdown from response field too
+      if (parsedResponse.response) {
+        parsedResponse.response = parsedResponse.response
+          .replace(/\*\*([^*]+)\*\*/g, '$1')
+          .replace(/__([^_]+)__/g, '$1')
+          .replace(/\*([^*]+)\*/g, '$1')
+          .replace(/_([^_]+)_/g, '$1');
+      }
     } catch (error) {
       // Fallback if AI doesn't return proper JSON
       parsedResponse = {
@@ -219,7 +255,7 @@ If the user asks about something not related to fitness, politely redirect them 
     }
 
     res.json({
-      message: parsedResponse.response,
+      message: parsedResponse.response || parsedResponse.message || aiResponse,
       suggestions: parsedResponse.suggestions || [],
       program_mods: parsedResponse.program_mods || [],
       nutrition_tips: parsedResponse.nutrition_tips || [],

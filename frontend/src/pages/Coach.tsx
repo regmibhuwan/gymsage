@@ -86,7 +86,13 @@ const Coach: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await chatWithCoach(text);
+      // Send conversation history for context
+      const conversationHistory = messages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+      
+      const response = await chatWithCoach(text, conversationHistory);
       const { message, suggestions, program_mods, nutrition_tips } = response;
 
       const assistantMessage: Message = {
@@ -212,7 +218,7 @@ const Coach: React.FC = () => {
                     <Bot className="h-5 w-5 mt-0.5 text-gray-600" />
                   )}
                   <div className="flex-1">
-                    <p className="text-sm">{message.content}</p>
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                     <p className={`text-xs mt-1 ${
                       message.role === 'user' ? 'text-blue-100' : 'text-gray-500'
                     }`}>
