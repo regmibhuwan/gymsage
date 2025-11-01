@@ -26,25 +26,43 @@ router.post('/analyze', authenticateToken, async (req, res) => {
   }
 });
 
-// Minimal chat endpoint with contextual grounding from recent uploads
+// Enhanced chat endpoint with contextual grounding from recent uploads and date-specific queries
 router.post('/chat', authenticateToken, async (req, res) => {
   try {
     const { message, history } = req.body || {};
     if (!message) return res.status(400).json({ error: 'message is required' });
 
-    // Pull recent uploads to ground the response
-    const { data: recentPhotos, error } = await supabase
+    // Check for date-specific queries (e.g., "from March to August")
+    const datePattern = /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,4})/gi;
+    const dateMatches = [...message.matchAll(datePattern)];
+    const hasDateQuery = dateMatches.length > 0;
+
+    // Pull ALL photos if date query detected, otherwise recent ones
+    let query = supabase
       .from('photos')
-      .select('id, url, muscle_group, created_at, notes, weight_lbs, body_fat_percentage, measurements')
-      .eq('user_id', req.user.id)
-      .order('created_at', { ascending: false })
-      .limit(10);
+      .select('id, url, muscle_group, created_at, notes, weight_lbs, body_fat_percentage, measurements, analysis_data, comparison_data')
+      .eq('user_id', req.user.id);
+
+    if (hasDateQuery) {
+      // Get all photos for date range analysis
+      query = query.order('created_at', { ascending: true });
+    } else {
+      // Get recent photos only
+      query = query.order('created_at', { ascending: false }).limit(15);
+    }
+
+    const { data: photos, error } = await query;
     if (error) throw new Error(error.message || error);
 
     const client = getOpenAIClient();
 
     // Build context-aware system prompt
-    const system = `You are an expert fitness coach AI. You have access to the user's progress photo history. When analyzing progress, be specific about what you observe in their photos, reference muscle groups they've tracked, and provide actionable, personalized recommendations. Avoid generic advice - base your responses on their actual photo data and metrics.`;
+    const system = `You are an expert fitness coach AI with access to the user's progress photo history. 
+- When analyzing progress between specific dates, reference the exact dates and photos from those time periods
+- Be specific about what you observe in their photos, reference muscle groups they've tracked
+- Provide actionable, personalized recommendations based on their actual photo data and metrics
+- If asked about specific date ranges, use the photo dates provided in the context to give accurate comparisons
+- Avoid generic advice - base your responses on their actual photo data and metrics`;
 
     // Build messages array with history
     const messages = [
@@ -59,20 +77,35 @@ router.post('/chat', authenticateToken, async (req, res) => {
       }
     });
 
-    // Add current context and message
-    const contextSummary = recentPhotos && recentPhotos.length > 0 
-      ? `User's recent progress photos (${recentPhotos.length} total):\n` +
-        recentPhotos.map(p => 
-          `- ${p.muscle_group} (${new Date(p.created_at).toLocaleDateString()})` +
-          (p.weight_lbs ? ` - Weight: ${p.weight_lbs}lbs` : '') +
-          (p.body_fat_percentage ? ` - Body Fat: ${p.body_fat_percentage}%` : '') +
-          (p.notes ? ` - Notes: ${p.notes}` : '')
-        ).join('\n')
-      : 'User has no progress photos uploaded yet.';
+    // Build detailed context summary with dates and photo information
+    let contextSummary = '';
+    if (photos && photos.length > 0) {
+      contextSummary = `User's progress photos (${photos.length} total):\n\n`;
+      photos.forEach(p => {
+        const date = new Date(p.created_at);
+        const dateStr = date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        contextSummary += `- ${p.muscle_group} photo from ${dateStr}`;
+        if (p.weight_lbs) contextSummary += ` - Weight: ${p.weight_lbs}lbs`;
+        if (p.body_fat_percentage) contextSummary += ` - Body Fat: ${p.body_fat_percentage}%`;
+        if (p.notes) contextSummary += ` - Notes: ${p.notes}`;
+        if (p.analysis_data) contextSummary += ` - Has analysis data`;
+        contextSummary += '\n';
+      });
+      
+      // Add date range context if relevant
+      if (hasDateQuery && photos.length > 1) {
+        const sortedPhotos = [...photos].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        const earliest = new Date(sortedPhotos[0].created_at);
+        const latest = new Date(sortedPhotos[sortedPhotos.length - 1].created_at);
+        contextSummary += `\nPhoto date range: ${earliest.toLocaleDateString()} to ${latest.toLocaleDateString()}\n`;
+      }
+    } else {
+      contextSummary = 'User has no progress photos uploaded yet.';
+    }
 
     messages.push({
       role: 'user',
-      content: `Context:\n${contextSummary}\n\nUser's question: ${message}`
+      content: `Context:\n${contextSummary}\n\nUser's question: ${message}\n\nPlease provide a detailed, specific response based on the photos and dates available.`
     });
 
     const completion = await client.chat.completions.create({
