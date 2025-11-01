@@ -169,6 +169,172 @@ IMPORTANT FORMATTING RULES:
   }
 });
 
+// Comprehensive Dashboard AI chat - accesses all user data
+router.post('/dashboard-chat', authenticateToken, async (req, res) => {
+  try {
+    const { message, history } = req.body || {};
+    if (!message) return res.status(400).json({ error: 'message is required' });
+
+    // Fetch ALL user data for comprehensive context
+    const [workoutsResult, photosResult] = await Promise.all([
+      supabase
+        .from('workouts')
+        .select('id, date, exercises, notes')
+        .eq('user_id', req.user.id)
+        .order('date', { ascending: false })
+        .limit(50),
+      supabase
+        .from('photos')
+        .select('id, url, muscle_group, created_at, notes, weight_lbs, body_fat_percentage, measurements, analysis_data')
+        .eq('user_id', req.user.id)
+        .order('created_at', { ascending: false })
+        .limit(30)
+    ]);
+
+    const workouts = workoutsResult.data || [];
+    const photos = photosResult.data || [];
+
+    // Calculate comprehensive stats
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const thisWeekWorkouts = workouts.filter(w => new Date(w.date) >= weekAgo).length;
+    const thisMonthWorkouts = workouts.filter(w => new Date(w.date) >= monthAgo).length;
+    const totalExercises = workouts.reduce((sum, w) => sum + (w.exercises?.length || 0), 0);
+    
+    // Exercise frequency
+    const exerciseFrequency = {};
+    workouts.forEach(workout => {
+      workout.exercises?.forEach(ex => {
+        exerciseFrequency[ex.exercise] = (exerciseFrequency[ex.exercise] || 0) + 1;
+      });
+    });
+
+    // Photo stats by muscle group
+    const photoStats = {};
+    photos.forEach(photo => {
+      if (photo.muscle_group) {
+        photoStats[photo.muscle_group] = (photoStats[photo.muscle_group] || 0) + 1;
+      }
+    });
+
+    const client = getOpenAIClient();
+
+    // Build comprehensive system prompt
+    const system = `You are an expert AI fitness assistant for GymSage. You have access to the user's complete fitness data including workouts, progress photos, and statistics.
+
+YOUR CAPABILITIES:
+- Answer questions about workout history, exercises, sets, reps, weights
+- Analyze progress photos and muscle group development
+- Provide insights on workout frequency, exercise patterns, and progress trends
+- Give personalized fitness, nutrition, and training advice
+- Reference specific dates, exercises, and progress data from their account
+- Remember previous conversation topics and maintain context
+
+IMPORTANT:
+- Reference actual data from their account (workout dates, exercises, photo dates, muscle groups)
+- Be specific and accurate - use real numbers and dates from their data
+- If asked about something not in their data, acknowledge it clearly
+- Provide detailed, well-written responses with proper formatting
+- Use line breaks between paragraphs, bullet points for lists
+- NO markdown formatting (**bold** or *italic*) - just plain text
+- Keep responses helpful and actionable`;
+
+    // Build messages array with history
+    const messages = [
+      { role: 'system', content: system }
+    ];
+
+    // Add conversation history (last 15 messages)
+    const recentHistory = Array.isArray(history) ? history.slice(-15) : [];
+    recentHistory.forEach(msg => {
+      if (msg.role && msg.content) {
+        messages.push({ role: msg.role, content: msg.content });
+      }
+    });
+
+    // Build comprehensive context summary
+    let contextSummary = `USER'S GYMSAGE ACCOUNT DATA:\n\n`;
+    
+    // Workout summary
+    contextSummary += `WORKOUTS (${workouts.length} total):\n`;
+    if (workouts.length > 0) {
+      contextSummary += `- This week: ${thisWeekWorkouts} workouts\n`;
+      contextSummary += `- This month: ${thisMonthWorkouts} workouts\n`;
+      contextSummary += `- Total exercises tracked: ${totalExercises}\n`;
+      contextSummary += `- Most recent: ${new Date(workouts[0].date).toLocaleDateString()}\n`;
+      if (workouts.length > 1) {
+        contextSummary += `- Oldest: ${new Date(workouts[workouts.length - 1].date).toLocaleDateString()}\n`;
+      }
+      
+      // Top exercises
+      const topExercises = Object.entries(exerciseFrequency)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 10)
+        .map(([name, count]) => `${name} (${count} times)`)
+        .join(', ');
+      if (topExercises) {
+        contextSummary += `- Most performed exercises: ${topExercises}\n`;
+      }
+      
+      // Recent workout details
+      contextSummary += `\nRecent workouts:\n`;
+      workouts.slice(0, 10).forEach(w => {
+        const date = new Date(w.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const exerciseNames = w.exercises?.map(e => e.exercise).join(', ') || 'No exercises';
+        contextSummary += `  - ${date}: ${exerciseNames}\n`;
+      });
+    } else {
+      contextSummary += `- No workouts logged yet\n`;
+    }
+
+    // Photo summary
+    contextSummary += `\nPROGRESS PHOTOS (${photos.length} total):\n`;
+    if (photos.length > 0) {
+      Object.entries(photoStats).forEach(([muscle, count]) => {
+        contextSummary += `- ${muscle}: ${count} photos\n`;
+      });
+      
+      // Recent photos
+      contextSummary += `\nRecent photos:\n`;
+      photos.slice(0, 10).forEach(p => {
+        const date = new Date(p.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        contextSummary += `  - ${date}: ${p.muscle_group || 'Unknown'}${p.weight_lbs ? ` - ${p.weight_lbs}lbs` : ''}${p.body_fat_percentage ? ` - ${p.body_fat_percentage}% BF` : ''}\n`;
+      });
+    } else {
+      contextSummary += `- No photos uploaded yet\n`;
+    }
+
+    messages.push({
+      role: 'user',
+      content: `Context:\n${contextSummary}\n\nUser's question: ${message}\n\nPlease provide a detailed, helpful response based on their actual GymSage account data. Reference specific dates, exercises, and numbers when relevant.`
+    });
+
+    const completion = await client.chat.completions.create({
+      model: process.env.OPENAI_CHAT_MODEL || process.env.OPENAI_MODEL || 'gpt-4-turbo',
+      messages: messages,
+      temperature: 0.6
+    });
+
+    let content = completion.choices?.[0]?.message?.content || 'I apologize, but I couldn\'t generate a response. Please try again.';
+    
+    // Clean up markdown formatting
+    content = content.replace(/\*\*([^*]+)\*\*/g, '$1');
+    content = content.replace(/__([^_]+)__/g, '$1');
+    content = content.replace(/\*([^*]+)\*/g, '$1');
+    content = content.replace(/_([^_]+)_/g, '$1');
+    content = content.replace(/^#{1,6}\s+/gm, '');
+    content = content.replace(/\n{3,}/g, '\n\n');
+    content = content.trim();
+    
+    return res.json({ content });
+  } catch (err) {
+    console.error('Dashboard AI chat error:', err);
+    return res.status(500).json({ error: 'Chat failed', details: err.message || err });
+  }
+});
+
 module.exports = router;
 
 

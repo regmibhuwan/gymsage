@@ -11,7 +11,11 @@ import {
   MessageCircle,
   BarChart3,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Sparkles,
+  Send,
+  X,
+  Bot
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { 
@@ -56,6 +60,13 @@ const Dashboard: React.FC = () => {
     stats: null as any,
     type: 'daily' as 'daily' | 'weekly'
   });
+
+  // AI Chat state
+  const [showAIChat, setShowAIChat] = useState(false);
+  const [chatMessage, setChatMessage] = useState('');
+  const [chatHistory, setChatHistory] = useState<Array<{role: string; content: string}>>([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     console.log('Dashboard useEffect running...');
@@ -408,6 +419,63 @@ const Dashboard: React.FC = () => {
   };
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+
+  // Scroll chat to bottom when new messages arrive
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatHistory]);
+
+  const sendChatMessage = async () => {
+    if (!chatMessage.trim() || chatLoading) return;
+
+    const userMessage = chatMessage.trim();
+    setChatMessage('');
+    setChatHistory(prev => [...prev, { role: 'user', content: userMessage }]);
+    setChatLoading(true);
+
+    try {
+      // Use comprehensive dashboard chat endpoint
+      const response = await api.post('/ai/dashboard-chat', { 
+        message: userMessage,
+        history: chatHistory.map(msg => ({ role: msg.role, content: msg.content }))
+      });
+      
+      // Extract plain text response
+      let aiResponse = '';
+      if (response.data && response.data.content && typeof response.data.content === 'string') {
+        aiResponse = response.data.content;
+      } else if (response.data && response.data.message && typeof response.data.message === 'string') {
+        aiResponse = response.data.message;
+      } else if (typeof response.data === 'string') {
+        aiResponse = response.data;
+      } else {
+        console.warn('Unexpected response format:', response.data);
+        aiResponse = 'I received your message but encountered a formatting issue. Please try again.';
+      }
+      
+      // Clean up markdown formatting
+      aiResponse = aiResponse.replace(/\*\*([^*]+)\*\*/g, '$1');
+      aiResponse = aiResponse.replace(/__([^_]+)__/g, '$1');
+      aiResponse = aiResponse.replace(/\*([^*]+)\*/g, '$1');
+      aiResponse = aiResponse.replace(/_([^_]+)_/g, '$1');
+      aiResponse = aiResponse.replace(/^#{1,6}\s+/gm, '');
+      aiResponse = aiResponse.replace(/\n{3,}/g, '\n\n');
+      aiResponse = aiResponse.trim();
+
+      setChatHistory(prev => [...prev, { role: 'assistant', content: aiResponse }]);
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+      toast.error('Failed to get AI response');
+      setChatHistory(prev => [...prev, { 
+        role: 'assistant', 
+        content: 'Sorry, I encountered an error. Please try again.' 
+      }]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -927,6 +995,152 @@ const Dashboard: React.FC = () => {
         stats={summaryModal.stats}
         type={summaryModal.type}
       />
+
+      {/* AI Chat Assistant - Beautiful Floating Chat */}
+      {showAIChat && (
+        <div className="fixed bottom-4 right-4 w-96 h-[600px] bg-white rounded-2xl shadow-2xl border-2 border-purple-200 flex flex-col z-50 overflow-hidden">
+          {/* Chat Header */}
+          <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className="p-2 bg-white bg-opacity-20 rounded-lg">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg">AI Assistant</h3>
+                <p className="text-xs text-purple-100">Ask me anything about your fitness journey</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowAIChat(false)}
+              className="p-1 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Chat Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+            {chatHistory.length === 0 && (
+              <div className="text-center py-8">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-purple-100 to-blue-100 rounded-full mb-4">
+                  <Sparkles className="h-8 w-8 text-purple-600" />
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-2">Your Personal Fitness AI</h4>
+                <p className="text-sm text-gray-600 mb-4">I can help you with:</p>
+                <div className="space-y-2 text-left">
+                  {[
+                    "Your workout history and exercises",
+                    "Progress photo analysis",
+                    "Training recommendations",
+                    "Nutrition advice",
+                    "Progress tracking insights"
+                  ].map((item, idx) => (
+                    <div key={idx} className="flex items-center space-x-2 text-sm text-gray-700">
+                      <div className="w-1.5 h-1.5 bg-purple-500 rounded-full" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-6 space-y-2">
+                  {[
+                    "What exercises do I do most?",
+                    "How's my progress this month?",
+                    "Compare my chest photos",
+                    "Give me a workout plan"
+                  ].map((question, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setChatMessage(question);
+                        setTimeout(() => sendChatMessage(), 100);
+                      }}
+                      className="block w-full text-left px-3 py-2 text-sm bg-white hover:bg-purple-50 rounded-lg border border-gray-200 transition-colors text-gray-700"
+                    >
+                      {question}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {chatHistory.map((msg, idx) => (
+              <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+                  msg.role === 'user' 
+                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white' 
+                    : 'bg-white text-gray-900 border border-gray-200 shadow-sm'
+                }`}>
+                  {msg.role === 'assistant' && (
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Bot className="h-4 w-4 text-purple-600" />
+                      <span className="text-xs font-semibold text-purple-600">AI Assistant</span>
+                    </div>
+                  )}
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                </div>
+              </div>
+            ))}
+
+            {chatLoading && (
+              <div className="flex justify-start">
+                <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-sm">
+                  <div className="flex items-center space-x-2">
+                    <Bot className="h-4 w-4 text-purple-600" />
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <div className="w-2 h-2 bg-purple-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Chat Input */}
+          <div className="p-4 bg-white border-t border-gray-200">
+            <div className="flex items-end space-x-2">
+              <textarea
+                value={chatMessage}
+                onChange={(e) => setChatMessage(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendChatMessage();
+                  }
+                }}
+                placeholder="Ask me anything about your workouts, photos, or progress..."
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                rows={2}
+                disabled={chatLoading}
+              />
+              <button
+                onClick={sendChatMessage}
+                disabled={chatLoading || !chatMessage.trim()}
+                className="p-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+              >
+                <Send className="h-5 w-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Chat Toggle Button - Floating */}
+      {!showAIChat && (
+        <button
+          onClick={() => setShowAIChat(true)}
+          className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full shadow-2xl hover:shadow-3xl hover:scale-110 transition-all duration-300 flex items-center justify-center z-40 group"
+        >
+          <Sparkles className="h-6 w-6 group-hover:rotate-12 transition-transform" />
+          {chatHistory.length > 0 && (
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center font-bold">
+              {chatHistory.length}
+            </span>
+          )}
+        </button>
+      )}
     </div>
   );
 };
