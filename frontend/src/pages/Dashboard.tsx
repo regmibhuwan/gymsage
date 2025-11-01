@@ -66,10 +66,11 @@ const Dashboard: React.FC = () => {
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<Array<{role: string; content: string}>>([]);
   const [chatLoading, setChatLoading] = useState(false);
-  const chatEndRef = React.useRef<HTMLDivElement>(null);
+  const chatEndRef = React.useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     console.log('Dashboard useEffect running...');
+    console.log('AI Chat feature initialized');
     fetchWorkouts();
   }, []);
 
@@ -1130,12 +1131,17 @@ const Dashboard: React.FC = () => {
       {/* AI Chat Toggle Button - Floating */}
       {!showAIChat && (
         <button
-          onClick={() => setShowAIChat(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-full shadow-2xl hover:shadow-3xl hover:scale-110 transition-all duration-300 flex items-center justify-center z-40 group"
+          onClick={() => {
+            console.log('AI Chat button clicked!');
+            setShowAIChat(true);
+          }}
+          className="fixed bottom-6 right-6 w-16 h-16 bg-gradient-to-r from-purple-600 via-purple-500 to-blue-600 text-white rounded-full shadow-2xl hover:shadow-purple-500/50 hover:scale-110 transition-all duration-300 flex items-center justify-center z-[9999] group animate-pulse"
+          style={{ boxShadow: '0 20px 25px -5px rgba(147, 51, 234, 0.5), 0 10px 10px -5px rgba(147, 51, 234, 0.3)' }}
+          title="Ask AI Assistant"
         >
-          <Sparkles className="h-6 w-6 group-hover:rotate-12 transition-transform" />
+          <Sparkles className="h-7 w-7 group-hover:rotate-12 transition-transform" />
           {chatHistory.length > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center font-bold">
+            <span className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full text-xs flex items-center justify-center font-bold text-white shadow-lg">
               {chatHistory.length}
             </span>
           )}
