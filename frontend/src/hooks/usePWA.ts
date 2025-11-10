@@ -38,7 +38,8 @@ export const usePWA = (): PWAState & { installApp: () => Promise<void> } => {
               newWorker.addEventListener('statechange', () => {
                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
                   // New service worker available, prompt user to refresh
-                  if (confirm('A new version is available! Reload to get the latest updates?')) {
+                  // eslint-disable-next-line no-restricted-globals
+                  if (window.confirm('A new version is available! Reload to get the latest updates?')) {
                     window.location.reload();
                   }
                 }
