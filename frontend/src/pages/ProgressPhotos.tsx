@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Camera, Upload, X, Loader2, CheckCircle2, Sparkles, TrendingUp, 
-  TrendingDown, Minus, ChevronRight, Calendar, Target, Zap, Trash2, MessageCircle, Send 
+  Camera, Upload, X, Loader2, CheckCircle2, Sparkles, Target, Zap, Trash2, MessageCircle, Send 
 } from 'lucide-react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
@@ -83,9 +82,6 @@ const ProgressPhotos: React.FC = () => {
   const [selectedMuscle, setSelectedMuscle] = useState<string>('chest');
   const [uploading, setUploading] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
-  const [viewMode, setViewMode] = useState<'grid' | 'timeline'>('grid');
-  const [activeTimeline, setActiveTimeline] = useState<string | null>(null);
-  const [timelineData, setTimelineData] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Upload form fields
@@ -165,16 +161,6 @@ const ProgressPhotos: React.FC = () => {
     }
   };
 
-  const loadTimeline = async (muscleGroup: string) => {
-    try {
-      setActiveTimeline(muscleGroup);
-      const response = await api.get(`/photos/enhanced/timeline/${muscleGroup}`);
-      setTimelineData(response.data);
-    } catch (error: any) {
-      console.error('Error loading timeline:', error);
-      toast.error('Failed to load timeline');
-    }
-  };
 
   const deletePhoto = async (photoId: number) => {
     // eslint-disable-next-line no-restricted-globals
@@ -269,11 +255,6 @@ const ProgressPhotos: React.FC = () => {
     }
   };
 
-  const getTrendIcon = (trend: string) => {
-    if (trend === 'improving') return <TrendingUp className="h-5 w-5 text-green-600" />;
-    if (trend === 'declining') return <TrendingDown className="h-5 w-5 text-red-600" />;
-    return <Minus className="h-5 w-5 text-gray-600" />;
-  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -291,22 +272,22 @@ const ProgressPhotos: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Visual Progress Tracker</h1>
-          <p className="text-gray-600">Track muscle-specific progress with AI-powered analysis</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Visual Progress Tracker</h1>
+          <p className="text-sm sm:text-base text-gray-600">Track muscle-specific progress with AI-powered analysis</p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:space-x-3 sm:gap-0 w-full sm:w-auto">
           <button
             onClick={() => setShowAIChat(!showAIChat)}
-            className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+            className="btn-primary flex items-center justify-center space-x-2"
           >
             <MessageCircle className="h-5 w-5" />
             <span>Ask AI</span>
           </button>
           <button
             onClick={() => setUploadModalOpen(true)}
-            className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+            className="btn-primary flex items-center justify-center space-x-2"
           >
             <Upload className="h-5 w-5" />
             <span>Upload Photo</span>
@@ -435,13 +416,14 @@ const ProgressPhotos: React.FC = () => {
                 onChange={(e) => setChatMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
                 placeholder="Ask about your progress photos..."
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                className="flex-1 input-field"
+                style={{ fontSize: '16px' }}
                 disabled={chatLoading}
               />
               <button
                 onClick={sendChatMessage}
                 disabled={chatLoading || !chatMessage.trim()}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                className="btn-primary min-w-[48px] min-h-[48px] flex items-center justify-center"
               >
                 <Send className="h-5 w-5" />
               </button>
@@ -450,30 +432,8 @@ const ProgressPhotos: React.FC = () => {
         </div>
       )}
 
-      {/* View Mode Toggle */}
-      <div className="flex space-x-2 bg-gray-100 p-1 rounded-lg w-fit">
-        <button
-          onClick={() => setViewMode('grid')}
-          className={`px-4 py-2 rounded-md font-semibold transition-colors ${
-            viewMode === 'grid' ? 'bg-white text-blue-600 shadow' : 'text-gray-600'
-          }`}
-        >
-          Grid View
-        </button>
-        <button
-          onClick={() => setViewMode('timeline')}
-          className={`px-4 py-2 rounded-md font-semibold transition-colors ${
-            viewMode === 'timeline' ? 'bg-white text-blue-600 shadow' : 'text-gray-600'
-          }`}
-        >
-          Timeline View
-        </button>
-      </div>
-
-      {/* Content */}
-      {viewMode === 'grid' ? (
-        // Grid View - Muscle Groups
-        <div className="space-y-6">
+      {/* Content - Grid View */}
+      <div className="space-y-6">
           {Object.entries(photosByMuscle).length === 0 ? (
             <div className="card bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 text-center py-12">
               <Camera className="h-16 w-16 text-blue-600 mx-auto mb-4" />
@@ -490,9 +450,6 @@ const ProgressPhotos: React.FC = () => {
             Object.entries(photosByMuscle).map(([muscle, musclePhotos]) => {
               const muscleInfo = MUSCLE_GROUPS.find(m => m.value === muscle);
               const latestPhoto = musclePhotos[0];
-              const avgScore = Math.round(
-                musclePhotos.reduce((sum, p) => sum + (p.progress_score || 50), 0) / musclePhotos.length
-              );
 
               return (
                 <div key={muscle} className="card">
@@ -503,20 +460,6 @@ const ProgressPhotos: React.FC = () => {
                         <h3 className="text-xl font-bold text-gray-900 capitalize">{muscle}</h3>
                         <p className="text-sm text-gray-600">{musclePhotos.length} photos tracked</p>
                       </div>
-                    </div>
-                    <div className="flex items-center space-x-4">
-                      <div className="text-right">
-                        <p className="text-sm text-gray-600">Progress Score</p>
-                        <p className="text-2xl font-bold text-blue-600">{avgScore}</p>
-                      </div>
-                      <button
-                        onClick={() => loadTimeline(muscle)}
-                        className="flex items-center space-x-2 bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-lg font-semibold transition-colors"
-                      >
-                        <Calendar className="h-4 w-4" />
-                        <span>View Timeline</span>
-                        <ChevronRight className="h-4 w-4" />
-                      </button>
                     </div>
                   </div>
 
@@ -535,19 +478,35 @@ const ProgressPhotos: React.FC = () => {
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
                           <p className="text-white text-xs font-semibold">{formatDate(photo.created_at)}</p>
                         </div>
-                        {photo.progress_score && (
-                          <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded">
-                            {photo.progress_score}
+                        {photo.comparison_data?.growth_percentage !== null && photo.comparison_data?.growth_percentage !== undefined && (
+                          <div className={`absolute top-2 right-2 text-xs font-bold px-2 py-1 rounded ${
+                            photo.comparison_data.growth_percentage > 0 
+                              ? 'bg-green-600 text-white' 
+                              : photo.comparison_data.growth_percentage < 0
+                              ? 'bg-red-600 text-white'
+                              : 'bg-gray-600 text-white'
+                          }`}>
+                            {photo.comparison_data.growth_percentage > 0 ? '+' : ''}
+                            {photo.comparison_data.growth_percentage.toFixed(1)}%
                           </div>
                         )}
                       </div>
                     ))}
                   </div>
 
-                  {latestPhoto.comparison_data?.summary && (
+                  {latestPhoto.comparison_data && (
                     <div className="mt-4 p-4 bg-green-50 border-l-4 border-green-600 rounded-lg">
                       <p className="text-sm font-semibold text-green-900">Latest Progress:</p>
-                      <p className="text-sm text-green-800">{latestPhoto.comparison_data.summary.overall_assessment}</p>
+                      {latestPhoto.comparison_data.growth_percentage !== null && latestPhoto.comparison_data.growth_percentage !== undefined ? (
+                        <p className="text-sm text-green-800">
+                          {latestPhoto.comparison_data.growth_percentage > 0 ? 'Growth: +' : 'Change: '}
+                          {latestPhoto.comparison_data.growth_percentage.toFixed(1)}% vs previous photo
+                        </p>
+                      ) : (
+                        <p className="text-sm text-green-800">
+                          {latestPhoto.comparison_data.note || 'This is your first photo for this muscle group. Upload more photos to see progress comparisons.'}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -555,110 +514,6 @@ const ProgressPhotos: React.FC = () => {
             })
           )}
         </div>
-      ) : (
-        // Timeline View
-        <div className="space-y-6">
-          {activeTimeline && timelineData ? (
-            <div className="card">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 capitalize">{activeTimeline} Timeline</h3>
-                <button
-                  onClick={() => {
-                    setActiveTimeline(null);
-                    setTimelineData(null);
-                  }}
-                  className="text-gray-600 hover:text-gray-900"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-
-              {/* Trend Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <div className="flex items-center space-x-2 mb-2">
-                    {getTrendIcon(timelineData.trend?.trend)}
-                    <p className="text-sm font-semibold text-gray-700">Trend</p>
-                  </div>
-                  <p className="text-lg font-bold text-gray-900 capitalize">{timelineData.trend?.trend || 'N/A'}</p>
-                </div>
-
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-gray-700 mb-2">Avg Score</p>
-                  <p className="text-2xl font-bold text-blue-600">{timelineData.trend?.avgScore || 0}</p>
-                </div>
-
-                <div className="p-4 bg-green-50 rounded-lg">
-                  <p className="text-sm text-gray-700 mb-2">Total Growth</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {timelineData.trend?.totalGrowth > 0 ? '+' : ''}{timelineData.trend?.totalGrowth || 0}%
-                  </p>
-                </div>
-
-                <div className="p-4 bg-purple-50 rounded-lg">
-                  <p className="text-sm text-gray-700 mb-2">Photos</p>
-                  <p className="text-2xl font-bold text-purple-600">{timelineData.totalPhotos || 0}</p>
-                </div>
-              </div>
-
-              {/* Timeline Photos */}
-              <div className="space-y-4">
-                {timelineData.photos?.map((photo: Photo, index: number) => (
-                  <div key={photo.id} className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
-                    <div className="relative w-32 h-40 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                      <img src={photo.url} alt="Progress" className="w-full h-full object-cover" />
-                      {photo.progress_score && (
-                        <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded">
-                          {photo.progress_score}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="font-semibold text-gray-900">{formatDate(photo.created_at)}</p>
-                        {index > 0 && timelineData.comparisons?.[index - 1] && (
-                          <span className={`text-sm font-semibold ${
-                            timelineData.comparisons[index - 1].growth_percentage > 0 
-                              ? 'text-green-600' 
-                              : 'text-red-600'
-                          }`}>
-                            {timelineData.comparisons[index - 1].growth_percentage > 0 ? '+' : ''}
-                            {timelineData.comparisons[index - 1].growth_percentage}%
-                          </span>
-                        )}
-                      </div>
-                      {photo.notes && (
-                        <p className="text-sm text-gray-600 mb-2">{photo.notes}</p>
-                      )}
-                      {photo.weight_lbs && (
-                        <p className="text-xs text-gray-500">Weight: {photo.weight_lbs} lbs</p>
-                      )}
-                      {photo.analysis_data?.summary && (
-                        <div className="mt-2 text-sm text-gray-700">
-                          {photo.analysis_data.summary.key_observations?.slice(0, 2).map((obs: string, idx: number) => (
-                            <p key={idx} className="text-xs">• {obs}</p>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="card text-center py-12">
-              <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">Select a muscle group from Grid View to see its timeline</p>
-              <button
-                onClick={() => setViewMode('grid')}
-                className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold"
-              >
-                Go to Grid View
-              </button>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Upload Modal */}
       {uploadModalOpen && (
@@ -719,37 +574,37 @@ const ProgressPhotos: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Notes (Optional)</label>
+                <label className="label">Notes (Optional)</label>
                 <textarea
                   value={uploadNotes}
                   onChange={(e) => setUploadNotes(e.target.value)}
                   placeholder="e.g., After 3 months of training..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="input-field"
                   rows={3}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Weight (lbs)</label>
+                  <label className="label">Weight (lbs)</label>
                   <input
                     type="number"
                     value={uploadWeight}
                     onChange={(e) => setUploadWeight(e.target.value)}
                     placeholder="180"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="input-field"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Body Fat %</label>
+                  <label className="label">Body Fat %</label>
                   <input
                     type="number"
                     step="0.1"
                     value={uploadBodyFat}
                     onChange={(e) => setUploadBodyFat(e.target.value)}
                     placeholder="15.5"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="input-field"
                   />
                 </div>
               </div>
@@ -771,12 +626,12 @@ const ProgressPhotos: React.FC = () => {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-gray-900 capitalize">{selectedPhoto.muscle_group}</h2>
-                  <p className="text-gray-600">{formatDate(selectedPhoto.created_at)}</p>
+                  <h2 className="text-2xl font-bold text-gray-900 capitalize">{selectedPhoto?.muscle_group}</h2>
+                  <p className="text-gray-600">{formatDate(selectedPhoto?.created_at || '')}</p>
                 </div>
                 <div className="flex items-center space-x-2">
                   <button
-                    onClick={() => deletePhoto(selectedPhoto.id)}
+                    onClick={() => selectedPhoto && deletePhoto(selectedPhoto.id)}
                     className="text-red-600 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition-colors"
                     title="Delete photo"
                   >
@@ -791,11 +646,11 @@ const ProgressPhotos: React.FC = () => {
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <img
-                    src={selectedPhoto.url}
-                    alt={`${selectedPhoto.muscle_group} progress`}
+                    src={selectedPhoto?.url}
+                    alt={`${selectedPhoto?.muscle_group} progress`}
                     className="w-full h-auto rounded-lg"
                   />
-                  {selectedPhoto.notes && (
+                  {selectedPhoto?.notes && (
                     <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                       <p className="text-sm font-semibold text-gray-700 mb-1">Notes:</p>
                       <p className="text-sm text-gray-900">{selectedPhoto.notes}</p>
@@ -806,29 +661,28 @@ const ProgressPhotos: React.FC = () => {
                 <div className="space-y-4">
                   <h3 className="text-xl font-bold text-gray-900">Analysis & Progress</h3>
 
-                  {selectedPhoto.progress_score && (
-                    <div className="p-4 bg-blue-50 rounded-lg">
-                      <p className="text-sm text-gray-700 mb-1">Progress Score</p>
-                      <p className="text-3xl font-bold text-blue-600">{selectedPhoto.progress_score}/100</p>
-                    </div>
-                  )}
-
-                  {selectedPhoto.comparison_data && (
+                  {selectedPhoto?.comparison_data && (
                     <div className="p-4 bg-green-50 border-l-4 border-green-600 rounded-lg">
                       <p className="text-sm font-semibold text-green-900 mb-2">Progress vs Previous Photo</p>
-                      <div className="text-sm text-green-800 whitespace-pre-line">
-                        {formatComparisonText(selectedPhoto.comparison_data)}
-                      </div>
-                      {selectedPhoto.comparison_data.summary?.growth_percentage && (
-                        <p className="text-lg font-bold text-green-600 mt-2">
-                          Growth: {selectedPhoto.comparison_data.summary.growth_percentage > 0 ? '+' : ''}
-                          {selectedPhoto.comparison_data.summary.growth_percentage}%
+                      {selectedPhoto.comparison_data.growth_percentage !== null && selectedPhoto.comparison_data.growth_percentage !== undefined ? (
+                        <>
+                          <p className="text-lg font-bold text-green-600 mb-2">
+                            {selectedPhoto.comparison_data.growth_percentage > 0 ? 'Growth: +' : 'Change: '}
+                            {selectedPhoto.comparison_data.growth_percentage.toFixed(1)}%
+                          </p>
+                          {selectedPhoto.comparison_data.note && (
+                            <p className="text-sm text-green-800">{selectedPhoto.comparison_data.note}</p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-sm text-green-800">
+                          {selectedPhoto.comparison_data.note || 'This is your first photo for this muscle group. Upload more photos to see progress comparisons.'}
                         </p>
                       )}
                     </div>
                   )}
 
-                  {selectedPhoto.analysis_data?.summary && (
+                  {selectedPhoto?.analysis_data?.summary && (
                     <div className="space-y-3">
                       {selectedPhoto.analysis_data.summary.key_observations?.length > 0 && (
                         <div className="p-4 bg-purple-50 rounded-lg">

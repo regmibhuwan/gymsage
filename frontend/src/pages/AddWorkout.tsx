@@ -38,9 +38,9 @@ const AddWorkout: React.FC = () => {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentExercise, setCurrentExercise] = useState('');
-  const [currentSets, setCurrentSets] = useState(1);
-  const [currentReps, setCurrentReps] = useState(10);
-  const [currentWeight, setCurrentWeight] = useState(0);
+  const [currentSets, setCurrentSets] = useState('');
+  const [currentReps, setCurrentReps] = useState('');
+  const [currentWeight, setCurrentWeight] = useState('');
   
   // Session context for incremental logging
   const [sessionContext, setSessionContext] = useState({
@@ -262,12 +262,26 @@ const AddWorkout: React.FC = () => {
       return;
     }
 
+    const setsValue = parseInt(currentSets) || 1;
+    const repsValue = parseInt(currentReps) || 0;
+    const weightValue = parseFloat(currentWeight) || 0;
+
+    if (setsValue < 1) {
+      toast.error('Please enter at least 1 set');
+      return;
+    }
+
+    if (repsValue < 1) {
+      toast.error('Please enter the number of reps');
+      return;
+    }
+
     const sets = [];
-    for (let i = 1; i <= currentSets; i++) {
+    for (let i = 1; i <= setsValue; i++) {
       sets.push({
         set: i,
-        reps: currentReps,
-        weight_kg: currentWeight
+        reps: repsValue,
+        weight_kg: weightValue
       });
     }
 
@@ -278,9 +292,9 @@ const AddWorkout: React.FC = () => {
 
     setExercises(prev => [...prev, newExercise]);
     setCurrentExercise('');
-    setCurrentSets(1);
-    setCurrentReps(10);
-    setCurrentWeight(0);
+    setCurrentSets('');
+    setCurrentReps('');
+    setCurrentWeight('');
     toast.success('Exercise added');
   };
 
@@ -420,9 +434,9 @@ const AddWorkout: React.FC = () => {
     const set = exercise.sets[setIndex];
     
     setCurrentExercise(exercise.exercise);
-    setCurrentSets(1);
-    setCurrentReps(set.reps);
-    setCurrentWeight(set.weight_kg);
+    setCurrentSets('1');
+    setCurrentReps(set.reps.toString());
+    setCurrentWeight(set.weight_kg.toString());
 
     toast(`Editing Set ${set.set} of ${exercise.exercise}. Say the new reps and weight.`, { icon: '📝' });
 
@@ -797,8 +811,8 @@ const AddWorkout: React.FC = () => {
         <div className="card">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Add Exercise Manually</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="sm:col-span-2 lg:col-span-1">
               <label className="label">Exercise</label>
               <input
                 type="text"
@@ -814,8 +828,9 @@ const AddWorkout: React.FC = () => {
                 type="number"
                 min="1"
                 value={currentSets}
-                onChange={(e) => setCurrentSets(parseInt(e.target.value) || 1)}
+                onChange={(e) => setCurrentSets(e.target.value)}
                 className="input-field"
+                placeholder="Enter sets"
               />
             </div>
             <div>
@@ -824,8 +839,9 @@ const AddWorkout: React.FC = () => {
                 type="number"
                 min="1"
                 value={currentReps}
-                onChange={(e) => setCurrentReps(parseInt(e.target.value) || 1)}
+                onChange={(e) => setCurrentReps(e.target.value)}
                 className="input-field"
+                placeholder="Enter reps"
               />
             </div>
             <div>
@@ -835,18 +851,19 @@ const AddWorkout: React.FC = () => {
                 min="0"
                 step="0.5"
                 value={currentWeight}
-                onChange={(e) => setCurrentWeight(parseFloat(e.target.value) || 0)}
+                onChange={(e) => setCurrentWeight(e.target.value)}
                 className="input-field"
+                placeholder="Enter weight"
               />
             </div>
-            <div className="flex items-end">
+            <div className="flex items-end sm:col-span-2 lg:col-span-1">
               <button
                 type="button"
                 onClick={addManualExercise}
                 className="btn-primary w-full flex items-center justify-center space-x-2"
               >
-                <Plus className="h-4 w-4" />
-                <span>Add</span>
+                <Plus className="h-5 w-5" />
+                <span className="text-base">Add Exercise</span>
               </button>
             </div>
           </div>
