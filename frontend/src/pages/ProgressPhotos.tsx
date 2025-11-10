@@ -437,16 +437,16 @@ const ProgressPhotos: React.FC = () => {
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
                           <p className="text-white text-xs font-semibold">{formatDate(photo.created_at)}</p>
                         </div>
-                        {photo.comparison_data?.growth_percentage !== null && photo.comparison_data?.growth_percentage !== undefined && (
+                        {(photo.comparison_data?.summary?.growth_percentage !== null && photo.comparison_data?.summary?.growth_percentage !== undefined) && (
                           <div className={`absolute top-2 right-2 text-xs font-bold px-2 py-1 rounded ${
-                            photo.comparison_data.growth_percentage > 0 
+                            photo.comparison_data.summary.growth_percentage > 0 
                               ? 'bg-green-600 text-white' 
-                              : photo.comparison_data.growth_percentage < 0
+                              : photo.comparison_data.summary.growth_percentage < 0
                               ? 'bg-red-600 text-white'
                               : 'bg-gray-600 text-white'
                           }`}>
-                            {photo.comparison_data.growth_percentage > 0 ? '+' : ''}
-                            {photo.comparison_data.growth_percentage.toFixed(1)}%
+                            {photo.comparison_data.summary.growth_percentage > 0 ? '+' : ''}
+                            {photo.comparison_data.summary.growth_percentage.toFixed(1)}%
                           </div>
                         )}
                       </div>
@@ -456,14 +456,14 @@ const ProgressPhotos: React.FC = () => {
                   {latestPhoto.comparison_data && (
                     <div className="mt-4 p-4 bg-green-50 border-l-4 border-green-600 rounded-lg">
                       <p className="text-sm font-semibold text-green-900">Latest Progress:</p>
-                      {latestPhoto.comparison_data.growth_percentage !== null && latestPhoto.comparison_data.growth_percentage !== undefined ? (
+                      {latestPhoto.comparison_data.summary?.growth_percentage !== null && latestPhoto.comparison_data.summary?.growth_percentage !== undefined ? (
                         <p className="text-sm text-green-800">
-                          {latestPhoto.comparison_data.growth_percentage > 0 ? 'Growth: +' : 'Change: '}
-                          {latestPhoto.comparison_data.growth_percentage.toFixed(1)}% vs previous photo
+                          {latestPhoto.comparison_data.summary.growth_percentage > 0 ? 'Growth: +' : 'Change: '}
+                          {latestPhoto.comparison_data.summary.growth_percentage.toFixed(1)}% vs previous photo
                         </p>
                       ) : (
                         <p className="text-sm text-green-800">
-                          {latestPhoto.comparison_data.note || 'This is your first photo for this muscle group. Upload more photos to see progress comparisons.'}
+                          {latestPhoto.comparison_data.summary?.overall_assessment || 'This is your first photo for this muscle group. Upload more photos to see progress comparisons.'}
                         </p>
                       )}
                     </div>
@@ -623,19 +623,19 @@ const ProgressPhotos: React.FC = () => {
                   {selectedPhoto?.comparison_data && (
                     <div className="p-4 bg-green-50 border-l-4 border-green-600 rounded-lg">
                       <p className="text-sm font-semibold text-green-900 mb-2">Progress vs Previous Photo</p>
-                      {selectedPhoto.comparison_data.growth_percentage !== null && selectedPhoto.comparison_data.growth_percentage !== undefined ? (
+                      {selectedPhoto.comparison_data.summary?.growth_percentage !== null && selectedPhoto.comparison_data.summary?.growth_percentage !== undefined ? (
                         <>
                           <p className="text-lg font-bold text-green-600 mb-2">
-                            {selectedPhoto.comparison_data.growth_percentage > 0 ? 'Growth: +' : 'Change: '}
-                            {selectedPhoto.comparison_data.growth_percentage.toFixed(1)}%
+                            {selectedPhoto.comparison_data.summary.growth_percentage > 0 ? 'Growth: +' : 'Change: '}
+                            {selectedPhoto.comparison_data.summary.growth_percentage.toFixed(1)}%
                           </p>
-                          {selectedPhoto.comparison_data.note && (
-                            <p className="text-sm text-green-800">{selectedPhoto.comparison_data.note}</p>
+                          {selectedPhoto.comparison_data.summary?.overall_assessment && (
+                            <p className="text-sm text-green-800">{selectedPhoto.comparison_data.summary.overall_assessment}</p>
                           )}
                         </>
                       ) : (
                         <p className="text-sm text-green-800">
-                          {selectedPhoto.comparison_data.note || 'This is your first photo for this muscle group. Upload more photos to see progress comparisons.'}
+                          {selectedPhoto.comparison_data.summary?.overall_assessment || 'This is your first photo for this muscle group. Upload more photos to see progress comparisons.'}
                         </p>
                       )}
                     </div>
