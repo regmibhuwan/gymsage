@@ -26,16 +26,29 @@ export const usePWA = (): PWAState & { installApp: () => Promise<void> } => {
         .then((registration) => {
           console.log('Service Worker registered successfully:', registration);
           
+          // Check for updates periodically
+          setInterval(() => {
+            registration.update();
+          }, 60000); // Check every minute
+          
           // Check for updates
           registration.addEventListener('updatefound', () => {
             const newWorker = registration.installing;
             if (newWorker) {
               newWorker.addEventListener('statechange', () => {
                 if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  toast.success('App updated! Refresh to get the latest version.');
+                  // New service worker available, prompt user to refresh
+                  if (confirm('A new version is available! Reload to get the latest updates?')) {
+                    window.location.reload();
+                  }
                 }
               });
             }
+          });
+          
+          // Listen for controller change (service worker updated)
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            window.location.reload();
           });
         })
         .catch((error) => {

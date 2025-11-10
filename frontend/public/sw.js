@@ -1,6 +1,6 @@
-const CACHE_NAME = 'gymsage-v1.0.0';
-const STATIC_CACHE_NAME = 'gymsage-static-v1.0.0';
-const DYNAMIC_CACHE_NAME = 'gymsage-dynamic-v1.0.0';
+const CACHE_NAME = 'gymsage-v1.1.0';
+const STATIC_CACHE_NAME = 'gymsage-static-v1.1.0';
+const DYNAMIC_CACHE_NAME = 'gymsage-dynamic-v1.1.0';
 
 // Files to cache immediately
 const STATIC_FILES = [
@@ -45,7 +45,8 @@ self.addEventListener('activate', (event) => {
       .then((cacheNames) => {
         return Promise.all(
           cacheNames.map((cacheName) => {
-            if (cacheName !== STATIC_CACHE_NAME && cacheName !== DYNAMIC_CACHE_NAME) {
+            // Delete all old caches that don't match current version
+            if (cacheName !== STATIC_CACHE_NAME && cacheName !== DYNAMIC_CACHE_NAME && cacheName.startsWith('gymsage-')) {
               console.log('Service Worker: Deleting old cache', cacheName);
               return caches.delete(cacheName);
             }
@@ -54,7 +55,19 @@ self.addEventListener('activate', (event) => {
       })
       .then(() => {
         console.log('Service Worker: Activation complete');
+        // Force all clients to use the new service worker immediately
         return self.clients.claim();
+      })
+      .then(() => {
+        // Notify all clients about the update
+        return self.clients.matchAll().then((clients) => {
+          clients.forEach((client) => {
+            client.postMessage({
+              type: 'SW_UPDATED',
+              message: 'Service Worker updated. Please refresh.'
+            });
+          });
+        });
       })
   );
 });
@@ -154,9 +167,34 @@ async function handleApiRequest(request) {
   }
 }
 
-// Handle static file requests with cache-first strategy
+// Handle static file requests with network-first strategy for JS/CSS, cache-first for others
 async function handleStaticRequest(request) {
-  // Try cache first
+  const url = new URL(request.url);
+  const isJSorCSS = url.pathname.endsWith('.js') || url.pathname.endsWith('.css') || url.pathname.includes('/static/js/') || url.pathname.includes('/static/css/');
+  
+  // For JS/CSS files, use network-first to get updates immediately
+  if (isJSorCSS) {
+    try {
+      const networkResponse = await fetch(request);
+      
+      // Cache successful responses for offline use
+      if (networkResponse.ok) {
+        const cache = await caches.open(STATIC_CACHE_NAME);
+        cache.put(request, networkResponse.clone());
+      }
+      
+      return networkResponse;
+    } catch (error) {
+      // Network failed, try cache as fallback
+      const cachedResponse = await caches.match(request);
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      throw error;
+    }
+  }
+  
+  // For other static files (images, etc.), use cache-first
   const cachedResponse = await caches.match(request);
   
   if (cachedResponse) {
@@ -286,5 +324,12 @@ self.addEventListener('notificationclick', (event) => {
     event.waitUntil(
       clients.openWindow('/dashboard')
     );
+  }
+});
+
+// Listen for messages from clients
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
   }
 });
