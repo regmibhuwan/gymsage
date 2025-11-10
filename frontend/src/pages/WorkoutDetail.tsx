@@ -26,23 +26,21 @@ const WorkoutDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (id) {
-      fetchWorkout();
-    }
-  }, [id]);
-
-  const fetchWorkout = async () => {
-    try {
-      const response = await api.get(`/workouts/${id}`);
-      setWorkout(response.data.workout);
-    } catch (error) {
-      console.error('Error fetching workout:', error);
-      toast.error('Failed to load workout');
-      navigate('/dashboard');
-    } finally {
-      setLoading(false);
-    }
-  };
+    const fetchWorkout = async () => {
+      if (!id) return;
+      try {
+        const response = await api.get(`/workouts/${id}`);
+        setWorkout(response.data.workout);
+      } catch (error) {
+        console.error('Error fetching workout:', error);
+        toast.error('Failed to load workout');
+        navigate('/dashboard');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchWorkout();
+  }, [id, navigate]);
 
   const handleDelete = async () => {
     if (!workout || !window.confirm('Are you sure you want to delete this workout?')) {

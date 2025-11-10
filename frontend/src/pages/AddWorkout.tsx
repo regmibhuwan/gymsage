@@ -466,7 +466,7 @@ const AddWorkout: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await api.post('/workouts', {
+      await api.post('/workouts', {
         date,
         exercises,
         notes
@@ -612,8 +612,6 @@ const AddWorkout: React.FC = () => {
           const weekWorkouts = allWorkouts.filter((workout: any) => {
             if (!workout || !workout.date) return false;
             
-            // Normalize workout date
-            const workoutDateStr = normalizeDate(workout.date);
             const workoutDate = new Date(workout.date);
             
             // Check if workout date falls within week range

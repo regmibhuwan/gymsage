@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Camera, Upload, X, Loader2, CheckCircle2, Sparkles, Target, Zap, Trash2, MessageCircle, Send 
+  Camera, Upload, X, Loader2, Sparkles, Target, Zap, Trash2, MessageCircle, Send 
 } from 'lucide-react';
 import api from '../utils/api';
 import toast from 'react-hot-toast';
@@ -36,43 +36,6 @@ interface Photo {
   progress_score?: number;
 }
 
-interface Insight {
-  id: number;
-  muscle_group: string;
-  insight_type: string;
-  insight_text: string;
-  confidence_score: number;
-  created_at: string;
-}
-
-// Format comparison text to be readable
-const formatComparisonText = (comparison: any) => {
-  if (!comparison) return '';
-  
-  let text = comparison.text || '';
-  
-  // If it's already formatted nicely from AI, just show it
-  if (comparison.text && typeof comparison.text === 'string') {
-    return text;
-  }
-  
-  // Otherwise, format the summary
-  if (comparison.summary) {
-    const parts = [];
-    if (comparison.summary.growth_percentage) {
-      parts.push(`Growth: ${comparison.summary.growth_percentage > 0 ? '+' : ''}${comparison.summary.growth_percentage}%`);
-    }
-    if (comparison.summary.definition_improvement) {
-      parts.push('Muscle definition improved');
-    }
-    if (comparison.summary.recommendations) {
-      parts.push(`\nRecommendations: ${comparison.summary.recommendations}`);
-    }
-    return parts.join('\n');
-  }
-  
-  return text;
-};
 
 const ProgressPhotos: React.FC = () => {
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -80,7 +43,6 @@ const ProgressPhotos: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [selectedMuscle, setSelectedMuscle] = useState<string>('chest');
-  const [uploading, setUploading] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -133,7 +95,6 @@ const ProgressPhotos: React.FC = () => {
 
   const uploadPhoto = async (file: File) => {
     try {
-      setUploading(true);
       const formData = new FormData();
       formData.append('photo', file);
       formData.append('muscle_group', selectedMuscle);
@@ -156,8 +117,6 @@ const ProgressPhotos: React.FC = () => {
       console.error('Error uploading photo:', error);
       const errorMessage = error.response?.data?.error || error.message || 'Failed to upload photo';
       toast.error(errorMessage);
-    } finally {
-      setUploading(false);
     }
   };
 

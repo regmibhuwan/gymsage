@@ -1,11 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
-import toast from 'react-hot-toast';
 import { chatWithCoach, getCoachRecommendations } from '../utils/api';
 import { 
   Send, 
   Bot, 
-  User, 
   Loader2,
   Lightbulb,
   Target,

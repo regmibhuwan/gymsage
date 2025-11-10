@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell, Legend 
 } from 'recharts';
 
@@ -280,8 +280,6 @@ const Dashboard: React.FC = () => {
         const weekWorkouts = workouts.filter(workout => {
           if (!workout || !workout.date) return false;
           
-          // Normalize workout date
-          const workoutDateStr = normalizeDate(workout.date);
           const workoutDate = new Date(workout.date);
           
           // Check if workout date falls within week range

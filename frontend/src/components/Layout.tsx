@@ -7,10 +7,7 @@ import {
   Camera, 
   MessageCircle, 
   LogOut, 
-  BarChart3,
-  Calendar,
-  Menu,
-  X
+  Menu
 } from 'lucide-react';
 
 interface LayoutProps {
