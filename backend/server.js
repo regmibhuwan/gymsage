@@ -15,7 +15,6 @@ const voiceRoutes = require('./routes/voice');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Trust Railway proxy (fixes rate limiting warning)
 app.set('trust proxy', 1);
 
 // CORS must be configured before helmet so preflight responses are clean
@@ -84,9 +83,10 @@ app.use('*', (req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 GymSage backend server running on port ${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/api/health`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`GymSage backend running on port ${PORT}`);
+  });
+}
 
 module.exports = app;

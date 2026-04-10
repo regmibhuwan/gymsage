@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "installCommand": "npm install && cd backend && npm install && cd ../frontend && npm install",
   "builds": [
     {
       "src": "frontend/package.json",
@@ -7,9 +8,17 @@
       "config": {
         "distDir": "build"
       }
+    },
+    {
+      "src": "backend/server.js",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "backend/server.js"
+    },
     {
       "src": "/static/(.*)",
       "dest": "frontend/build/static/$1"

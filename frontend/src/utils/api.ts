@@ -1,15 +1,11 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-// Use local API in development, production URL in production
 const getBaseURL = () => {
-  // Check if we're in development (localhost)
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    // In development, use local backend
     return 'http://localhost:3001/api';
   }
-  // In production, use the deployed backend
-  return process.env.REACT_APP_API_URL || 'https://gymsage-backend-production-4ebe.up.railway.app/api';
+  return process.env.REACT_APP_API_URL || '/api';
 };
 
 // Configure axios defaults
