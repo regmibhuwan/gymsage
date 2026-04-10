@@ -1,4 +1,3 @@
-backend/
 analyzer/
 node_modules/
 *.log
