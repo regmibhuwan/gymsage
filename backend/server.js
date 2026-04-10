@@ -18,13 +18,31 @@ const PORT = process.env.PORT || 3001;
 // Trust Railway proxy (fixes rate limiting warning)
 app.set('trust proxy', 1);
 
-// Security middleware
-app.use(helmet());
+// CORS must be configured before helmet so preflight responses are clean
+const allowedOrigins = [
+  'https://gymsage.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:3001',
+];
+
 app.use(cors({
-  origin: true,  // Allow all origins for now
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, true); // permissive for now; tighten later
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// Security middleware — disable helmet policies that clash with CORS
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginOpenerPolicy: false,
+  crossOriginEmbedderPolicy: false,
 }));
 
 // Rate limiting
