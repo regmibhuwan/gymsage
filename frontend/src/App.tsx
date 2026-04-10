@@ -26,7 +26,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     );
   }
   
-  return user ? <>{children}</> : <Navigate to="/login" />;
+  return user ? <>{children}</> : <Navigate to="/login" replace />;
 };
 
 // Public Route component (redirect to dashboard if logged in)
@@ -41,7 +41,7 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     );
   }
   
-  return user ? <Navigate to="/dashboard" /> : <>{children}</>;
+  return user ? <Navigate to="/dashboard" replace /> : <>{children}</>;
 };
 
 function App() {
@@ -80,9 +80,7 @@ function App() {
             {/* Protected routes */}
             <Route path="/" element={
               <ProtectedRoute>
-                <Layout>
-                  <Navigate to="/dashboard" />
-                </Layout>
+                <Navigate to="/dashboard" replace />
               </ProtectedRoute>
             } />
             <Route path="/dashboard" element={
