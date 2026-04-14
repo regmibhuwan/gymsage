@@ -5,7 +5,18 @@ const getBaseURL = () => {
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     return 'http://localhost:3001/api';
   }
-  return process.env.REACT_APP_API_URL || '/api';
+
+  const configuredApiUrl = process.env.REACT_APP_API_URL?.trim();
+  if (!configuredApiUrl) {
+    return '/api';
+  }
+
+  // Normalize custom API URL so auth/workout calls always target /api/*
+  if (configuredApiUrl.startsWith('/')) {
+    return configuredApiUrl.endsWith('/api') ? configuredApiUrl : `${configuredApiUrl.replace(/\/+$/, '')}/api`;
+  }
+
+  return configuredApiUrl.endsWith('/api') ? configuredApiUrl : `${configuredApiUrl.replace(/\/+$/, '')}/api`;
 };
 
 // Configure axios defaults
